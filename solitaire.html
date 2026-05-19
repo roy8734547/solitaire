@@ -980,18 +980,9 @@ function ZenPuzzle({revealedPieces,paintingUrl}){
 }
 function NatureScene({name,zenPieces,paintingUrl}){
   const id=name.replace(/\s/g,'_');
-  // Always show the ARTIC painting as soon as it loads (Zen Garden keeps its puzzle overlay)
-  if(paintingUrl && name!=='Zen Garden'){
-    return (
-      <div style={{position:'relative',width:'100%',height:'100%',overflow:'hidden',borderRadius:8}}>
-        <img src={paintingUrl} alt="masterpiece"
-          style={{position:'absolute',inset:0,width:'100%',height:'100%',
-                  objectFit:'cover',objectPosition:'center top',display:'block',borderRadius:8}}/>
-        <div style={{position:'absolute',inset:0,
-                     background:'linear-gradient(to top,rgba(0,0,0,.6) 0%,transparent 55%)',
-                     borderRadius:8,pointerEvents:'none'}}/>
-      </div>
-    );
+  // Always show as a puzzle when painting is available — consistent on all platforms & stages
+  if(paintingUrl){
+    return <ZenPuzzle revealedPieces={zenPieces||new Set()} paintingUrl={paintingUrl}/>;
   }
   if(name==='First Light') return (
     <svg width="100%" height="100%" viewBox="0 0 360 130" preserveAspectRatio="xMidYMid slice">
