@@ -1,0 +1,2500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Mindful Solitaire</title>
+
+  <!-- ── PWA / iOS home-screen ── -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Solitaire">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#1e1c14">
+  <link rel="manifest" href="manifest.json">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    html,body { height:100%; }
+    body { background:#111009; font-family:'Georgia','Times New Roman',serif; color:#e8dcc8; min-height:100dvh; min-height:-webkit-fill-available;
+           /* safe-area for iPhone notch / Dynamic Island / home indicator */
+           padding-top: env(safe-area-inset-top);
+           padding-bottom: env(safe-area-inset-bottom);
+           padding-left: env(safe-area-inset-left);
+           padding-right: env(safe-area-inset-right); }
+    ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:#111009} ::-webkit-scrollbar-thumb{background:#3a3020;border-radius:2px}
+    #root { max-width:480px; margin:0 auto; min-height:100dvh; min-height:-webkit-fill-available; background:#1e1c14; display:flex; flex-direction:column; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+    @keyframes winPop { 0%{transform:scale(.85);opacity:0} 70%{transform:scale(1.04)} 100%{transform:scale(1);opacity:1} }
+    .btn:hover{filter:brightness(1.15)} .btn:active{transform:scale(.97)}
+    input:focus{outline:none}
+    .dropzone { transition:box-shadow .12s,background .12s; }
+    .dropzone.over { box-shadow:0 0 0 2.5px #c8a030,0 0 14px rgba(200,160,48,.4) !important; background:rgba(200,160,48,.06) !important; }
+    /* prevent text selection while dragging */
+    body.dragging { user-select:none; -webkit-user-select:none; cursor:grabbing !important; }
+    /* ── Animation keyframes ── */
+    @keyframes flipIn { from{transform:perspective(500px) rotateY(-90deg) scaleX(.6);opacity:0} to{transform:perspective(500px) rotateY(0deg) scaleX(1);opacity:1} }
+    @keyframes slideInLeft { from{transform:translateX(-32px);opacity:0} to{transform:translateX(0);opacity:1} }
+    /* ── Liquid Glass ── */
+    .lg { backdrop-filter:blur(18px) saturate(1.6); -webkit-backdrop-filter:blur(18px) saturate(1.6); }
+    .lg-btn { backdrop-filter:blur(8px) saturate(1.4); -webkit-backdrop-filter:blur(8px) saturate(1.4); }
+    .lg-btn:hover { background:rgba(255,255,255,.09) !important; }
+    body { background:radial-gradient(ellipse at 28% 18%,#1b2016 0%,#111009 55%,#140f18 100%) !important; }
+    #root { background:rgba(20,18,12,.84) !important; }
+    /* ── Zen animations ── */
+    @keyframes zenFishSwim {
+      0%   { transform:translate(30px,80px) scaleX(1); }
+      42%  { transform:translate(255px,72px) scaleX(1); }
+      50%  { transform:translate(260px,72px) scaleX(-1); }
+      92%  { transform:translate(28px,82px) scaleX(-1); }
+      100% { transform:translate(30px,80px) scaleX(1); }
+    }
+    @keyframes zenFishSwim2 {
+      0%   { transform:translate(275px,96px) scaleX(-1); }
+      44%  { transform:translate(55px,90px) scaleX(-1); }
+      50%  { transform:translate(50px,90px) scaleX(1); }
+      94%  { transform:translate(278px,98px) scaleX(1); }
+      100% { transform:translate(275px,96px) scaleX(-1); }
+    }
+    @keyframes zenRakeDrift { 0%{transform:translateX(0px)} 100%{transform:translateX(38px)} }
+    @keyframes snapBounce { 0%{opacity:1;transform:scale(1.05)} 80%{opacity:.7;transform:scale(.98)} 100%{opacity:0;transform:scale(.95)} }
+    @keyframes snapPlace { 0%{transform:translateY(-6px) scale(1.06);opacity:.88} 65%{transform:translateY(1px) scale(.99)} 100%{transform:none;opacity:1} }
+    .felt-texture #root { background-image:repeating-linear-gradient(45deg,rgba(0,0,0,.04) 0px,rgba(0,0,0,.04) 1px,transparent 1px,transparent 6px),repeating-linear-gradient(-45deg,rgba(0,0,0,.04) 0px,rgba(0,0,0,.04) 1px,transparent 1px,transparent 6px) !important; }
+    @keyframes zenLeafFloat {
+      0%,100%{transform:translate(0,0) rotate(0deg)}
+      33%{transform:translate(5px,-4px) rotate(10deg)}
+      66%{transform:translate(-4px,3px) rotate(-6deg)}
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef } = React;
+
+// ── Constants ─────────────────────────────────────────────
+const SUITS  = ['♠','♥','♦','♣'];
+const VALUES = ['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+const CARD_H = 72, F_OFF = 18, B_OFF = 10;
+const T = {
+  bg:'#1e1c14', bgDark:'#17150f', bgLight:'#252318', sidebar:'#1b1912',
+  cardFace:'#f4eed8', cardBorder:'#c8b070', cardSelFace:'#fffbee', cardSelBord:'#e8b830',
+  cardBack1:'#28413a', cardBack2:'#19302a', cardBackBord:'#3a5a4e',
+  red:'#b52020', black:'#111111', gold:'#c8a030', goldLight:'#e8c868',
+  text:'#e8dcc8', muted:'#a89880', dim:'rgba(255,255,255,.07)', dimBord:'rgba(255,255,255,.13)',
+  green:'#1e3d2a', greenBright:'#3a7a52', btn:'#2c2818', btnBord:'rgba(255,255,255,.09)',
+};
+
+// ── Game logic ────────────────────────────────────────────
+function cardNum(v){ return VALUES.indexOf(v); }
+function isRed(c){ return c.suit==='♥'||c.suit==='♦'; }
+
+function seededShuffle(deck,seed){
+  let s=seed;
+  const rand=()=>{ s=(s*1664525+1013904223)&0xffffffff; return (s>>>0)/0xffffffff; };
+  const d=[...deck];
+  for(let i=d.length-1;i>0;i--){ const j=Math.floor(rand()*(i+1)); [d[i],d[j]]=[d[j],d[i]]; }
+  return d;
+}
+function makeDeck(){ return SUITS.flatMap(s=>VALUES.map(v=>({suit:s,value:v,id:`${v}${s}`,faceUp:false}))); }
+function dealFromSeed(seed){
+  const deck=seededShuffle(makeDeck(),seed);
+  const tableau=[];let i=0;
+  for(let col=0;col<7;col++){
+    const column=[];
+    for(let row=0;row<=col;row++) column.push({...deck[i++],faceUp:row===col});
+    tableau.push(column);
+  }
+  return { tableau, foundations:[[],[],[],[]], stock:deck.slice(i), waste:[], seed };
+}
+function cloneGs(gs){
+  return { tableau:gs.tableau.map(c=>c.map(x=>({...x}))), foundations:gs.foundations.map(f=>f.map(x=>({...x}))), stock:gs.stock.map(x=>({...x})), waste:gs.waste.map(x=>({...x})), seed:gs.seed };
+}
+function canToFoundation(card,found){
+  if(!found.length) return card.value==='A';
+  const top=found[found.length-1];
+  return top.suit===card.suit && cardNum(card.value)===cardNum(top.value)+1;
+}
+function canToTableau(card,col){
+  if(!col.length) return card.value==='K';
+  const top=col[col.length-1];
+  if(!top.faceUp) return false;
+  return isRed(card)!==isRed(top) && cardNum(card.value)===cardNum(top.value)-1;
+}
+function isWon(foundations){ return foundations.every(f=>f.length===13); }
+
+// Greedy solver with full visibility — confirms deal is winnable
+function greedySolve(initialGs){
+  let gs={
+    tableau:initialGs.tableau.map(col=>col.map(c=>({...c,faceUp:true}))),
+    foundations:[[],[],[],[]],
+    stock:[...initialGs.stock].map(c=>({...c,faceUp:true})),
+    waste:[],
+  };
+  let cycles=0;
+  for(let step=0;step<400;step++){
+    if(isWon(gs.foundations)) return true;
+    let moved=false;
+    // collect all possible foundations
+    let again=true;
+    while(again){
+      again=false;
+      const tops=[];
+      for(let ci=0;ci<7;ci++){ const col=gs.tableau[ci]; if(col.length) tops.push({card:col[col.length-1],src:'t',ci}); }
+      if(gs.waste.length) tops.push({card:gs.waste[gs.waste.length-1],src:'w'});
+      for(const {card,src,ci} of tops){
+        for(let fi=0;fi<4;fi++){
+          if(!canToFoundation(card,gs.foundations[fi])) continue;
+          const n=cloneGs(gs);
+          if(src==='w') n.waste.pop();
+          else{ n.tableau[ci].pop(); if(n.tableau[ci].length&&!n.tableau[ci][n.tableau[ci].length-1].faceUp) n.tableau[ci][n.tableau[ci].length-1].faceUp=true; }
+          n.foundations[fi].push(card);
+          gs=n; again=true; moved=true; break;
+        }
+        if(again) break;
+      }
+    }
+    if(isWon(gs.foundations)) return true;
+    // reveal hidden cards
+    for(let from=0;from<7&&!moved;from++){
+      const col=gs.tableau[from];
+      const fuIdx=col.findIndex(c=>c.faceUp);
+      if(fuIdx<=0) continue;
+      for(let idx=fuIdx;idx<col.length&&!moved;idx++){
+        for(let to=0;to<7&&!moved;to++){
+          if(to===from) continue;
+          if(canToTableau(col[idx],gs.tableau[to])){
+            const n=cloneGs(gs);
+            const cards=n.tableau[from].splice(idx);
+            n.tableau[to].push(...cards);
+            if(n.tableau[from].length&&!n.tableau[from][n.tableau[from].length-1].faceUp) n.tableau[from][n.tableau[from].length-1].faceUp=true;
+            gs=n; moved=true;
+          }
+        }
+      }
+    }
+    // waste → tableau
+    if(!moved&&gs.waste.length){
+      const w=gs.waste[gs.waste.length-1];
+      for(let ci=0;ci<7&&!moved;ci++){
+        if(canToTableau(w,gs.tableau[ci])){ const n=cloneGs(gs); n.tableau[ci].push(n.waste.pop()); gs=n; moved=true; }
+      }
+    }
+    // general tableau → tableau
+    for(let from=0;from<7&&!moved;from++){
+      const col=gs.tableau[from];
+      const fuIdx=col.findIndex(c=>c.faceUp);
+      if(fuIdx===-1) continue;
+      for(let idx=fuIdx;idx<col.length&&!moved;idx++){
+        for(let to=0;to<7&&!moved;to++){
+          if(to===from) continue;
+          if(canToTableau(col[idx],gs.tableau[to])){
+            const n=cloneGs(gs); const cards=n.tableau[from].splice(idx); n.tableau[to].push(...cards);
+            if(n.tableau[from].length&&!n.tableau[from][n.tableau[from].length-1].faceUp) n.tableau[from][n.tableau[from].length-1].faceUp=true;
+            gs=n; moved=true;
+          }
+        }
+      }
+    }
+    // draw stock
+    if(!moved){
+      if(gs.stock.length){ const n=cloneGs(gs); const c=n.stock.pop(); c.faceUp=true; n.waste.push(c); gs=n; moved=true; }
+      else if(gs.waste.length&&cycles<4){ const n=cloneGs(gs); n.stock=[...n.waste].reverse().map(c=>({...c,faceUp:true})); n.waste=[]; gs=n; cycles++; moved=true; }
+    }
+    if(!moved) break;
+  }
+  return isWon(gs.foundations);
+}
+function dealWinnableGame(){
+  for(let i=0;i<40;i++){ const seed=Math.floor(Math.random()*2e9); const gs=dealFromSeed(seed); if(greedySolve(gs)) return gs; }
+  return dealFromSeed(Math.floor(Math.random()*2e9));
+}
+
+function autoCollect(gs,level){
+  if(level===0) return {gs,delta:0};
+  let cur=cloneGs(gs),delta=0,changed=true;
+  while(changed){
+    changed=false;
+    const cands=[];
+    for(let ci=0;ci<7;ci++){ const col=cur.tableau[ci]; if(col.length&&col[col.length-1].faceUp) cands.push({card:col[col.length-1],src:'t',ci}); }
+    if(cur.waste.length) cands.push({card:cur.waste[cur.waste.length-1],src:'w'});
+    for(const {card,src,ci} of cands){
+      for(let fi=0;fi<4;fi++){
+        if(!canToFoundation(card,cur.foundations[fi])) continue;
+        if(level===1){ const minF=Math.min(...cur.foundations.map(f=>f.length)); if(cardNum(card.value)>minF+1) break; }
+        if(src==='w') cur.waste.pop();
+        else{ cur.tableau[ci].pop(); const col=cur.tableau[ci]; if(col.length&&!col[col.length-1].faceUp){col[col.length-1].faceUp=true;delta+=5;} }
+        cur.foundations[fi].push(card); delta+=10; changed=true; break;
+      }
+      if(changed) break;
+    }
+  }
+  return {gs:cur,delta};
+}
+// Returns list of auto-collect moves without mutating gs
+function getAutoMoves(gs,level){
+  if(level===0) return [];
+  let cur=cloneGs(gs);
+  const moves=[];
+  let changed=true;
+  while(changed){
+    changed=false;
+    const cands=[];
+    for(let ci=0;ci<7;ci++){ const col=cur.tableau[ci]; if(col.length&&col[col.length-1].faceUp) cands.push({card:col[col.length-1],src:'t',ci}); }
+    if(cur.waste.length) cands.push({card:cur.waste[cur.waste.length-1],src:'w'});
+    for(const {card,src,ci} of cands){
+      for(let fi=0;fi<4;fi++){
+        if(!canToFoundation(card,cur.foundations[fi])) continue;
+        if(level===1){ const minF=Math.min(...cur.foundations.map(f=>f.length)); if(cardNum(card.value)>minF+1) break; }
+        if(src==='w') cur.waste.pop();
+        else{ cur.tableau[ci].pop(); const col=cur.tableau[ci]; if(col.length&&!col[col.length-1].faceUp) col[col.length-1].faceUp=true; }
+        cur.foundations[fi].push(card);
+        moves.push({card,src,srcCi:ci,fi,gsSnapshot:cloneGs(cur)});
+        changed=true; break;
+      }
+      if(changed) break;
+    }
+  }
+  return moves;
+}
+
+// Find best tableau destination for a card (works for 1 or multiple valid spots)
+function findOnlyTableauDest(card,tableau,fromCi){ return findBestTableauDest(card,tableau,fromCi,-1); }
+function findBestTableauDest(card,tableau,fromCi,srcIdx){
+  const valid=[];
+  for(let ci=0;ci<7;ci++){
+    if(ci===fromCi) continue;
+    if(canToTableau(card,tableau[ci])) valid.push(ci);
+  }
+  if(!valid.length) return -1;
+  if(valid.length===1) return valid[0];
+  const scored=valid.map(ci=>{
+    let s=0;
+    const dest=tableau[ci];
+    // Revealing a face-down card in source: highest priority
+    if(fromCi>=0&&srcIdx>0){ const below=tableau[fromCi][srcIdx-1]; if(below&&!below.faceUp) s+=30; }
+    // Prefer non-empty destination (don't waste empty columns)
+    if(dest.length>0) s+=8;
+    // Prefer destinations with face-down cards (column still needs work)
+    s+=dest.filter(c=>!c.faceUp).length*3;
+    s+=dest.filter(c=>c.faceUp).length*0.5;
+    return {ci,s};
+  });
+  scored.sort((a,b)=>b.s-a.s);
+  return scored[0].ci;
+}
+
+function getGreeting(name){ const h=new Date().getHours(); const t=h<12?'morning':h<17?'afternoon':'evening'; return `Good ${t}, ${name}.`; }
+
+// ── Card components ───────────────────────────────────────
+function CardBack({onClick,topPx,onMouseDown}){
+  return (
+    <div onMouseDown={onMouseDown} onClick={onClick} style={{width:'100%',height:CARD_H,background:`linear-gradient(145deg,${T.cardBack1},${T.cardBack2})`,border:`1.5px solid ${T.cardBackBord}`,borderRadius:8,position:'absolute',top:topPx,cursor:onClick?'pointer':'default',boxShadow:'0 2px 8px rgba(0,0,0,.55)',overflow:'hidden'}}>
+      <div style={{position:'absolute',inset:5,border:'1px solid rgba(255,255,255,.10)',borderRadius:4,backgroundImage:'repeating-linear-gradient(45deg,rgba(255,255,255,.025) 0,rgba(255,255,255,.025) 1px,transparent 0,transparent 50%)',backgroundSize:'10px 10px'}}/>
+      <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'rgba(255,255,255,.08)',userSelect:'none'}}>♠</div>
+    </div>
+  );
+}
+
+
+function CardFace({card,selected,topPx,onClick,onDbl,isLast,onMouseDown,faded,isRevealing,isSnapping}){
+  const color=isRed(card)?T.red:T.black;
+  const bg=selected?T.cardSelFace:T.cardFace;
+  const bord=selected?`2px solid ${T.cardSelBord}`:`1.5px solid ${T.cardBorder}`;
+  const shad=selected?`0 0 0 2.5px ${T.gold},0 4px 16px rgba(0,0,0,.6)`:'0 2px 8px rgba(0,0,0,.5)';
+  const faceLabel={J:'J',Q:'Q',K:'K'}[card.value];
+  // Corner label: both value+suit on ONE row so suit stays within F_OFF=22px visible zone
+  // Value uses scaleX to appear wider/fatter without growing taller
+  return (
+    <div data-card-id={card.id} onMouseDown={onMouseDown} onClick={onClick} onDoubleClick={onDbl}
+      style={{width:'100%',height:CARD_H,background:bg,border:bord,borderRadius:8,position:'absolute',top:topPx,cursor:'grab',boxShadow:shad,userSelect:'none',opacity:faded?.35:1,transition:'opacity .1s',animation:isRevealing?'flipIn .20s cubic-bezier(.4,0,.2,1)':isSnapping?'snapPlace .20s cubic-bezier(.4,0,.2,1)':undefined}}>
+      {/* Top-left corner: rank left, suit right */}
+      <div style={{position:'absolute',top:2,left:4,right:4,color,display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
+        <span style={{fontSize:card.value==='10'?12:14,fontWeight:'900',lineHeight:'16px'}}>{card.value}</span>
+        <span style={{fontSize:16,lineHeight:'16px'}}>{card.suit}</span>
+      </div>
+      {/* Center: face label or large suit */}
+      {isLast&&(faceLabel
+        ?<div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:32,fontWeight:'900',color,opacity:.5,letterSpacing:'-1px'}}>{faceLabel}</div>
+        :<div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:28,color}}>{card.suit}</div>
+      )}
+      {/* Bottom-right corner — rotated 180° */}
+      <div style={{position:'absolute',bottom:2,left:4,right:4,color,display:'flex',alignItems:'flex-start',justifyContent:'space-between',transform:'rotate(180deg)'}}>
+        <span style={{fontSize:card.value==='10'?12:14,fontWeight:'900',lineHeight:'16px'}}>{card.value}</span>
+        <span style={{fontSize:16,lineHeight:'16px'}}>{card.suit}</span>
+      </div>
+    </div>
+  );
+}
+
+// Drag visual — floats under cursor
+function ConfirmModal({onConfirm,onCancel}){
+  return ReactDOM.createPortal(
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.72)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:300,animation:'fadeIn .18s ease'}}>
+      <div className="lg" style={{background:'rgba(22,19,12,.93)',border:'1px solid rgba(255,220,130,.15)',borderRadius:14,padding:'30px 28px',maxWidth:270,width:'90%',textAlign:'center',boxShadow:'0 24px 64px rgba(0,0,0,.9)'}}>
+        <div style={{fontSize:32,marginBottom:10,userSelect:'none'}}>♠</div>
+        <div style={{color:'#f0e8d0',fontSize:17,fontFamily:'Georgia,serif',marginBottom:8,letterSpacing:.2}}>Start a new game?</div>
+        <div style={{color:'#7a6a58',fontSize:13,marginBottom:24,lineHeight:1.5}}>Your current progress will be lost.</div>
+        <div style={{display:'flex',gap:10}}>
+          <button onClick={onCancel} className="btn" style={{flex:1,padding:'12px',background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.12)',borderRadius:9,color:'#8a7a68',fontSize:14,fontFamily:'Georgia,serif',cursor:'pointer'}}>Cancel</button>
+          <button onClick={onConfirm} className="btn" style={{flex:1,padding:'12px',background:'#c8a030',border:'none',borderRadius:9,color:'#1a0f00',fontSize:14,fontFamily:'Georgia,serif',cursor:'pointer',fontWeight:'bold'}}>New Game</button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function DragLayer({dv}){
+  if(!dv) return null;
+  const cards=dv.cards||[];
+  return ReactDOM.createPortal(
+    <div style={{position:'fixed',left:dv.x-dv.offX,top:dv.y-dv.offY,width:dv.cardW,pointerEvents:'none',zIndex:9999,opacity:.96,transform:'scale(1.05)',transformOrigin:'top center',filter:'drop-shadow(0 20px 36px rgba(0,0,0,.9))'}}>
+      {cards.map((card,i)=>{
+        const color=isRed(card)?T.red:T.black;
+        return (
+          <div key={card.id} style={{position:'absolute',top:i*F_OFF,width:'100%',height:CARD_H,background:T.cardFace,border:`1.5px solid ${T.cardBorder}`,borderRadius:8,boxShadow:'0 12px 32px rgba(0,0,0,.85)',userSelect:'none'}}>
+            <div style={{position:'absolute',top:5,left:7,color,lineHeight:1}}>
+              <div style={{fontSize:17,fontWeight:'bold'}}>{card.value}</div>
+              <div style={{fontSize:13,marginTop:1}}>{card.suit}</div>
+            </div>
+            {i===cards.length-1&&<div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:32,color}}>{card.suit}</div>}
+            <div style={{position:'absolute',bottom:5,right:7,color,lineHeight:1,transform:'rotate(180deg)'}}>
+              <div style={{fontSize:17,fontWeight:'bold'}}>{card.value}</div>
+              <div style={{fontSize:13,marginTop:1}}>{card.suit}</div>
+            </div>
+          </div>
+        );
+      })}
+      <div style={{height:cards.length*F_OFF+CARD_H}}/>
+    </div>,
+    document.body
+  );
+}
+
+function SnapLayer({sb}){
+  // sb = {x,y,offX,offY,cardW,cards,toX,toY,id}
+  const ref=useRef(null);
+  useEffect(()=>{
+    if(!ref.current) return;
+    // Next frame: switch to transition position (snap back)
+    const id=requestAnimationFrame(()=>{
+      if(!ref.current) return;
+      ref.current.style.transition='left .28s cubic-bezier(.4,1.4,.6,1),top .28s cubic-bezier(.4,1.4,.6,1),opacity .28s ease';
+      ref.current.style.left=sb.toX+'px';
+      ref.current.style.top=sb.toY+'px';
+      ref.current.style.opacity='0';
+    });
+    return()=>cancelAnimationFrame(id);
+  },[sb.id]);
+  if(!sb) return null;
+  const cards=sb.cards||[];
+  return ReactDOM.createPortal(
+    <div ref={ref} style={{position:'fixed',left:sb.x-sb.offX,top:sb.y-sb.offY,width:sb.cardW,pointerEvents:'none',zIndex:9998,opacity:.9,transform:'scale(1.05)',transformOrigin:'top center',filter:'drop-shadow(0 12px 24px rgba(0,0,0,.8))'}}>
+      {cards.map((card,i)=>{
+        const color=isRed(card)?T.red:T.black;
+        return (
+          <div key={card.id} style={{position:'absolute',top:i*F_OFF,width:'100%',height:CARD_H,background:T.cardFace,border:`1.5px solid ${T.cardBorder}`,borderRadius:8,boxShadow:'0 8px 24px rgba(0,0,0,.7)',userSelect:'none'}}>
+            <div style={{position:'absolute',top:2,left:5,color,lineHeight:1,display:'flex',alignItems:'center'}}>
+              <span style={{fontSize:18,fontWeight:'900',display:'inline-block',transform:'scaleX(1.18)',transformOrigin:'left center',lineHeight:'18px'}}>{card.value}</span>
+              <span style={{fontSize:18,marginLeft:card.value==='10'?5:3,lineHeight:'18px'}}>{card.suit}</span>
+            </div>
+          </div>
+        );
+      })}
+      <div style={{height:cards.length*F_OFF+CARD_H}}/>
+    </div>,
+    document.body
+  );
+}
+
+// Animated card flying from one position to another
+function FlyingCard({fc}){
+  if(!fc) return null;
+  const {card,fromRect,destRect,phase}=fc;
+  const color=isRed(card)?T.red:T.black;
+  const faceLabel={J:'J',Q:'Q',K:'K'}[card.value];
+  const style={
+    position:'fixed',
+    left:phase==='fly'?destRect.left:fromRect.left,
+    top:phase==='fly'?destRect.top:fromRect.top,
+    width:fromRect.width,
+    height:fromRect.height,
+    transition:phase==='fly'?'left .18s cubic-bezier(.4,0,.2,1),top .18s cubic-bezier(.4,0,.2,1)':'none',
+    zIndex:9997,
+    pointerEvents:'none',
+    borderRadius:8,
+    background:T.cardFace,
+    border:`1.5px solid ${T.cardBorder}`,
+    boxShadow:'0 10px 32px rgba(0,0,0,.8)',
+    overflow:'hidden',
+  };
+  return ReactDOM.createPortal(
+    <div style={style}>
+      <div style={{position:'absolute',top:5,left:7,color,lineHeight:1}}>
+        <div style={{fontSize:17,fontWeight:'bold'}}>{card.value}</div>
+        <div style={{fontSize:13,marginTop:1}}>{card.suit}</div>
+      </div>
+      {faceLabel
+        ?<div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:36,fontWeight:'bold',color,opacity:.55}}>{faceLabel}</div>
+        :<div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:32,color}}>{card.suit}</div>}
+      <div style={{position:'absolute',bottom:5,right:7,color,lineHeight:1,transform:'rotate(180deg)'}}>
+        <div style={{fontSize:17,fontWeight:'bold'}}>{card.value}</div>
+        <div style={{fontSize:13,marginTop:1}}>{card.suit}</div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function EmptySlot({label,onMouseUp,id}){
+  return (
+    <div id={id} className="dropzone" onMouseUp={onMouseUp}
+      style={{width:'100%',height:CARD_H,background:T.dim,border:`1.5px dashed ${T.dimBord}`,borderRadius:8,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center'}}>
+      <span style={{fontSize:20,color:T.dimBord,userSelect:'none'}}>{label||''}</span>
+    </div>
+  );
+}
+
+function TableauColumn({cards,ci,selected,dragState,onCard,onEmpty,onColDrop,revealedCards,snappingId}){
+  const colH=!cards.length?CARD_H:cards.reduce((h,c,i)=>h+(i===cards.length-1?CARD_H:(c.faceUp?F_OFF:B_OFF)),0);
+  return (
+    <div data-tabcol={ci} className="dropzone" style={{flex:1,position:'relative',minHeight:colH}}
+      onMouseUp={()=>onColDrop(ci)}>
+      {!cards.length&&<EmptySlot label="K" onMouseUp={()=>onColDrop(ci)}/>}
+      {cards.map((card,i)=>{
+        const topPx=cards.slice(0,i).reduce((h,c)=>h+(c.faceUp?F_OFF:B_OFF),0);
+        const isSel=selected?.src==='tableau'&&selected.ci===ci&&i>=selected.idx;
+        const isLast=i===cards.length-1;
+        const faded=dragState?.src==='tableau'&&dragState.ci===ci&&i>=dragState.idx;
+        if(!card.faceUp) return <CardBack key={card.id} topPx={topPx} onClick={isLast?()=>onCard('flip',ci,i,card):undefined}/>;
+        return <CardFace key={card.id} card={card} selected={isSel} topPx={topPx} isLast={isLast} faded={faded}
+          isRevealing={revealedCards?.has(card.id)} isSnapping={snappingId===card.id}
+          onClick={()=>onCard('tap',ci,i,card)} onDbl={()=>onCard('dbl',ci,i,card)}
+          onMouseDown={e=>onCard('down',ci,i,card,e)}/>;
+      })}
+      <div style={{height:colH}}/>
+    </div>
+  );
+}
+
+function FoundationPile({cards,hint,fi,onTap,onDrop,selected,onFoundDown}){
+  const top=cards[cards.length-1];
+  return (
+    <div data-found={fi} className="dropzone" style={{flex:1,height:CARD_H,minHeight:44,position:'relative'}}
+      onMouseUp={()=>onDrop(fi)} onClick={()=>onTap(fi)}>
+      {!top?<EmptySlot label={hint}/>
+        :<CardFace card={top} selected={selected} topPx={0} isLast={true}
+          onClick={()=>onTap(fi)} onDbl={()=>onTap(fi)}
+          onMouseDown={e=>onFoundDown(e,fi,top)}/>}
+      {cards.length>0&&<div style={{position:'absolute',bottom:3,right:5,fontSize:9,color:T.muted,zIndex:20}}>{cards.length}</div>}
+    </div>
+  );
+}
+
+function StockWaste({stock,waste,onStock,onWaste,wasteSelected,onWasteDown}){
+  const top=waste[waste.length-1];
+  const prev1=waste.length>=2?waste[waste.length-2]:null;
+  const prev2=waste.length>=3?waste[waste.length-3]:null;
+  const FAN=14; // horizontal offset between fanned cards
+  return (
+    <>
+      <div style={{flex:1,minHeight:44,height:CARD_H,position:'relative'}} onClick={onStock}>
+        {stock.length?<CardBack topPx={0} onClick={onStock}/>:<EmptySlot label="↺" onClick={onStock}/>}
+        <div style={{position:'absolute',bottom:3,right:5,fontSize:9,color:T.muted,zIndex:10}}>{stock.length}</div>
+      </div>
+      {/* Fanned waste — show up to 3 cards */}
+      <div data-waste-top="1" style={{flex:1.6,height:CARD_H,position:'relative'}}>
+        {!top&&<EmptySlot/>}
+        {prev2&&(
+          <div style={{position:'absolute',top:0,left:0,right:FAN*2,bottom:0,opacity:.7,pointerEvents:'none'}}>
+            <CardFace card={prev2} selected={false} topPx={0} isLast={false} faded={false}/>
+          </div>
+        )}
+        {prev1&&(
+          <div style={{position:'absolute',top:0,left:FAN,right:FAN,bottom:0,opacity:.85,pointerEvents:'none'}}>
+            <CardFace card={prev1} selected={false} topPx={0} isLast={false} faded={false}/>
+          </div>
+        )}
+        {top&&(
+          <div key={top.id} style={{position:'absolute',top:0,left:FAN*2,right:0,bottom:0,animation:'slideInLeft .22s ease-out'}}>
+            <CardFace card={top} selected={wasteSelected} topPx={0} isLast={true}
+              onClick={()=>onWaste(top)} onDbl={()=>onWaste(top,true)} onMouseDown={e=>onWasteDown(e,top)}/>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ── Setup / overlays ──────────────────────────────────────
+function NameSetup({onStart}){
+  const [name,setName]=useState('');
+  const [birthYear,setBirthYear]=useState('');
+  const [loading,setLoading]=useState(false);
+  const curYr=new Date().getFullYear();
+  const yr=parseInt(birthYear)||0;
+  const canBegin=name.trim()&&yr>=1924&&yr<=curYr-5;
+  function begin(){ if(!canBegin||loading) return; setLoading(true); setTimeout(()=>onStart(name.trim(),yr),10); }
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:36,background:T.bg,animation:'fadeIn .4s ease'}}>
+      <div style={{fontSize:52,marginBottom:12,userSelect:'none'}}>♠</div>
+      <h1 style={{fontSize:28,fontWeight:'normal',color:T.text,marginBottom:6}}>Solitaire</h1>
+      <p style={{color:T.muted,marginBottom:36,fontSize:14}}>A calm daily ritual · Every deal is winnable</p>
+      <div style={{width:'100%',maxWidth:290}}>
+        <label style={{display:'block',color:T.muted,fontSize:12,marginBottom:8,letterSpacing:.5}}>Your first name</label>
+        <input autoFocus value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&begin()} placeholder="e.g. Jane"
+          style={{width:'100%',padding:'13px 16px',background:T.bgLight,border:`1.5px solid ${T.cardBorder}`,borderRadius:9,color:T.text,fontSize:19,fontFamily:'Georgia,serif',marginBottom:14}}/>
+        <label style={{display:'block',color:T.muted,fontSize:12,marginBottom:8,letterSpacing:.5}}>Birth year <span style={{fontSize:10,opacity:.6}}>(for Brain Age tracking)</span></label>
+        <input type="number" value={birthYear} onChange={e=>setBirthYear(e.target.value)} onKeyDown={e=>e.key==='Enter'&&begin()} placeholder={`e.g. ${curYr-35}`} min="1924" max={curYr-5}
+          style={{width:'100%',padding:'13px 16px',background:T.bgLight,border:`1.5px solid ${T.cardBorder}`,borderRadius:9,color:T.text,fontSize:19,fontFamily:'Georgia,serif'}}/>
+        <div style={{fontSize:10,color:T.muted,marginTop:5,marginBottom:14,opacity:.7}}>Used to personalise your Brain Age score. Never shared.</div>
+        <button onClick={begin} disabled={!canBegin||loading} className="btn"
+          style={{width:'100%',padding:'14px',background:canBegin&&!loading?T.gold:T.btn,border:'none',borderRadius:9,color:canBegin&&!loading?'#1a0f00':T.muted,fontSize:16,fontFamily:'Georgia,serif',cursor:canBegin&&!loading?'pointer':'default',transition:'background .2s,color .2s'}}>
+          {loading?'Finding a winnable deal…':'Begin'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function WinScreen({playerName,score,streak,onNewGame}){
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,40,0,.92)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:200}}>
+      <div style={{animation:'winPop .5s ease',textAlign:'center',padding:32}}>
+        <div style={{fontSize:60,marginBottom:12}}>🌿</div>
+        <h2 style={{fontSize:26,color:T.goldLight,fontWeight:'normal',marginBottom:10}}>Well played, {playerName}.</h2>
+        <p style={{color:T.muted,marginBottom:4,fontSize:15}}>Score: {score}</p>
+        <p style={{color:T.muted,marginBottom:36,fontSize:15}}>Streak: {streak} {streak===1?'day':'days'} 🔥</p>
+        <button onClick={onNewGame} className="btn" style={{padding:'14px 40px',background:T.gold,border:'none',borderRadius:9,color:'#1a0f00',fontSize:16,fontFamily:'Georgia,serif',cursor:'pointer'}}>New Game</button>
+      </div>
+    </div>
+  );
+}
+
+function BreathPause({onClose,autoTriggered,onComplete}){
+  // Apple Watch Breathe-style flower animation
+  // Cycle: 4s inhale → 1s hold → 5s exhale = 10s/breath × 3 = 30s session
+  const TOTAL=30, CYCLE=10, IN_DUR=4, HOLD_TOP=1, OUT_DUR=5;
+  const [elapsed,setElapsed]=useState(0);
+  const rafRef=useRef(null), startRef=useRef(null);
+
+  useEffect(()=>{
+    startRef.current=performance.now();
+    function tick(now){
+      const e=Math.min((now-startRef.current)/1000, TOTAL+0.1);
+      setElapsed(e);
+      if(e<TOTAL) rafRef.current=requestAnimationFrame(tick);
+    }
+    rafRef.current=requestAnimationFrame(tick);
+    return()=>{ if(rafRef.current) cancelAnimationFrame(rafRef.current); };
+  },[]);
+
+  const done=elapsed>=TOTAL;
+  const cycleT=elapsed%CYCLE;
+
+  // Raw progress within phase (0→1)
+  let rawP=0, phaseLabel='Rest';
+  if(cycleT<IN_DUR){
+    rawP=cycleT/IN_DUR; phaseLabel='Breathe in';
+  } else if(cycleT<IN_DUR+HOLD_TOP){
+    rawP=1; phaseLabel='Hold';
+  } else {
+    rawP=1-(cycleT-IN_DUR-HOLD_TOP)/OUT_DUR; phaseLabel='Breathe out';
+  }
+  if(done) phaseLabel='Well done';
+
+  // Smooth ease (ease-in-out cubic)
+  const eased=rawP<0.5?4*rawP*rawP*rawP:(rawP-1)*(2*rawP-2)*(2*rawP-2)+1;
+
+  // Petal geometry
+  const minOff=16,maxOff=40,minR=30,maxR=48;
+  const pOff=minOff+(maxOff-minOff)*eased;
+  const pR=minR+(maxR-minR)*eased;
+  const gScale=0.82+0.22*eased;
+  const rot=elapsed*4; // slow rotation in degrees
+
+  // 6-petal flower: each petal is a circle offset from center
+  const ANGLES=[0,60,120,180,240,300];
+  const W=220,H=220,cx=W/2,cy=H/2;
+  const petals=ANGLES.map((deg,i)=>{
+    const rad=(deg+rot)*Math.PI/180;
+    return { px:Math.sin(rad)*pOff, py:-Math.cos(rad)*pOff, isBlue:i%2===1 };
+  });
+
+  // Progress ring
+  const ringR=90, circ=2*Math.PI*ringR;
+  const progress=Math.min(1,elapsed/TOTAL);
+
+  // Remaining time display
+  const remain=Math.max(0,Math.ceil(TOTAL-elapsed));
+
+  return ReactDOM.createPortal(
+    <div style={{position:'fixed',inset:0,background:'radial-gradient(ellipse at center,#08121e 0%,#040a10 100%)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:200,animation:'fadeIn .4s ease'}}>
+      {autoTriggered&&(
+        <div style={{position:'absolute',top:20,color:'rgba(72,200,170,.5)',fontSize:11,letterSpacing:1,fontFamily:'system-ui,sans-serif'}}>TIME FOR A BREATH BREAK</div>
+      )}
+      <svg width={W} height={H} style={{marginBottom:20,overflow:'visible'}}>
+        <defs>
+          <filter id="bfGlow" x="-40%" y="-40%" width="180%" height="180%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur"/>
+            <feMerge><feMergeNode in="blur"/><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+          <radialGradient id="bgGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stopColor="rgba(72,200,170,.08)"/>
+            <stop offset="100%" stopColor="rgba(72,200,170,0)"/>
+          </radialGradient>
+        </defs>
+
+        {/* Soft background glow that grows with breath */}
+        <circle cx={cx} cy={cy} r={80*gScale} fill="url(#bgGrad)" opacity={eased}/>
+
+        {/* Progress ring */}
+        <circle cx={cx} cy={cy} r={ringR} fill="none" stroke="rgba(255,255,255,.07)" strokeWidth="2.5"/>
+        <circle cx={cx} cy={cy} r={ringR} fill="none"
+          stroke="rgba(72,200,170,.55)" strokeWidth="2.5"
+          strokeDasharray={`${circ*progress} ${circ}`}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${cx} ${cy})`}
+          style={{transition:'stroke-dasharray .1s linear'}}/>
+
+        {/* Flower petals — 6 overlapping circles */}
+        <g transform={`translate(${cx},${cy}) scale(${gScale})`} filter="url(#bfGlow)" style={{mixBlendMode:'normal'}}>
+          {petals.map(({px,py,isBlue},i)=>(
+            <circle key={i} cx={px} cy={py} r={pR}
+              fill={isBlue?`rgba(48,168,216,${0.45+0.2*eased})`:`rgba(62,196,168,${0.45+0.2*eased})`}
+              style={{mixBlendMode:'screen'}}/>
+          ))}
+        </g>
+
+        {/* Center dot */}
+        <circle cx={cx} cy={cy} r={5*gScale} fill={`rgba(160,240,220,${0.5+0.4*eased})`}/>
+
+        {/* Center glow dot only — timer shown below */}
+      </svg>
+
+      <p style={{color:`rgba(${done?'180,240,215':'160,230,210'},${done?1:0.7+0.3*eased})`,fontSize:22,fontWeight:'300',letterSpacing:3,marginBottom:10,fontFamily:'system-ui,sans-serif',transition:'color .5s'}}>
+        {phaseLabel}
+      </p>
+      {!done&&(
+        <div style={{display:'flex',alignItems:'center',gap:8,marginBottom:8}}>
+          <svg width="18" height="22" viewBox="0 0 18 22" style={{flexShrink:0,opacity:0.6}}>
+            <path d="M2,1 L16,1 Q16,1 9,11 Q2,21 2,21 L16,21 Q16,21 9,11 Q2,1 2,1 Z" fill="none" stroke="rgba(72,200,170,.7)" strokeWidth="1.5" strokeLinejoin="round"/>
+            <rect x="1" y="0" width="16" height="2.5" rx="1" fill="rgba(72,200,170,.5)"/>
+            <rect x="1" y="19.5" width="16" height="2.5" rx="1" fill="rgba(72,200,170,.5)"/>
+            <ellipse cx="9" cy={21-18*(1-progress)} rx={5*(1-progress)+0.5} ry="1.2" fill="rgba(72,200,170,.55)" opacity={0.7}/>
+          </svg>
+          <span style={{color:'rgba(120,210,185,.75)',fontSize:18,fontFamily:'system-ui,sans-serif',fontWeight:'200',fontVariantNumeric:'tabular-nums',letterSpacing:1}}>
+            {Math.floor(remain/60)}:{String(remain%60).padStart(2,'0')}
+          </span>
+        </div>
+      )}
+      <p style={{color:'rgba(100,160,140,.45)',fontSize:11,marginBottom:40,fontFamily:'system-ui,sans-serif',letterSpacing:.5}}>
+        {done?'Session complete · 30s of mindful breathing':'30 seconds · 3 breath cycles'}
+      </p>
+
+      <button onClick={()=>{if(done&&onComplete)onComplete();onClose();}}
+        style={{padding:'12px 36px',background:'rgba(62,180,150,.12)',border:'1.5px solid rgba(62,180,150,.4)',borderRadius:24,color:'rgba(140,220,195,.9)',fontSize:14,cursor:'pointer',fontFamily:'system-ui,sans-serif',letterSpacing:.8,transition:'background .2s'}}
+        onMouseEnter={e=>e.currentTarget.style.background='rgba(62,180,150,.22)'}
+        onMouseLeave={e=>e.currentTarget.style.background='rgba(62,180,150,.12)'}>
+        {done?'Done ✓':'Skip'}
+      </button>
+    </div>,
+    document.body
+  );
+}
+
+function StatsOverlay({score,moves,streak,gamesWon,gamesPlayed,assist,onClose}){
+  const labels=['None','Auto Aces','Auto All'];
+  const winRate=gamesPlayed?Math.round(gamesWon/gamesPlayed*100):0;
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(5,8,5,.94)',display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',zIndex:200,padding:24}}>
+      <div style={{animation:'winPop .3s ease',width:'100%',maxWidth:320}}>
+        <h2 style={{fontSize:20,color:T.gold,fontWeight:'normal',textAlign:'center',marginBottom:24}}>Session Stats</h2>
+        {[['Score',score],['Moves',moves],['Streak',`${streak} days`],['Games Won',gamesWon],['Win Rate',`${winRate}%`],['Assistance',labels[assist]]].map(([l,v])=>(
+          <div key={l} style={{display:'flex',justifyContent:'space-between',padding:'9px 0',borderBottom:`1px solid ${T.dim}`}}>
+            <span style={{color:T.muted,fontSize:14}}>{l}</span>
+            <span style={{color:T.text,fontSize:14}}>{v}</span>
+          </div>
+        ))}
+        <button onClick={onClose} className="btn" style={{width:'100%',padding:'12px',marginTop:28,background:T.btn,border:`1px solid ${T.btnBord}`,borderRadius:8,color:T.text,fontSize:14,fontFamily:'Georgia,serif',cursor:'pointer'}}>Close</button>
+      </div>
+    </div>
+  );
+}
+
+// ── Main Game ─────────────────────────────────────────────
+const RITUAL=['Morning Breath','Afternoon Calm','Evening Check','Night Wind-Down'];
+const FOUND_HINTS=['♠','♥','♦','♣'];
+
+
+// ── findHint: best available move ────────────────────────────────────────────
+function findHint(gs){
+  for(let ci=0;ci<7;ci++){
+    const col=gs.tableau[ci]; if(!col.length) continue;
+    const card=col[col.length-1];
+    for(let fi=0;fi<4;fi++) if(canToFoundation(card,gs.foundations[fi])) return {type:'tab-found',ci,fi,card};
+  }
+  if(gs.waste.length){
+    const card=gs.waste[gs.waste.length-1];
+    for(let fi=0;fi<4;fi++) if(canToFoundation(card,gs.foundations[fi])) return {type:'waste-found',fi,card};
+  }
+  for(let from=0;from<7;from++){
+    const col=gs.tableau[from];
+    const fuIdx=col.findIndex(c=>c.faceUp);
+    if(fuIdx<=0) continue;
+    for(let to=0;to<7;to++){
+      if(to===from) continue;
+      if(canToTableau(col[fuIdx],gs.tableau[to])) return {type:'reveal',fromCi:from,toCi:to,idx:fuIdx,card:col[fuIdx]};
+    }
+  }
+  if(gs.waste.length){
+    const card=gs.waste[gs.waste.length-1];
+    for(let ci=0;ci<7;ci++) if(canToTableau(card,gs.tableau[ci])) return {type:'waste-tab',toCi:ci,card};
+  }
+  for(let from=0;from<7;from++){
+    const col=gs.tableau[from];
+    const fuIdx=col.findIndex(c=>c.faceUp);
+    if(fuIdx===-1) continue;
+    for(let idx=fuIdx;idx<col.length;idx++)
+      for(let to=0;to<7;to++){
+        if(to===from) continue;
+        if(canToTableau(col[idx],gs.tableau[to])) return {type:'tab-tab',fromCi:from,toCi:to,idx,card:col[idx]};
+      }
+  }
+  if(gs.stock.length) return {type:'draw'};
+  return null;
+}
+
+// ── computeMoveAccuracy: score player's move vs ideal move (0-100) ─
+function computeMoveAccuracy(gs, moveType, srcCard, destInfo){
+  const hint=findHint(gs);
+  if(!hint||hint.type==='none') return 72;           // no obvious move, anything is fine
+  if(moveType==='flip') return 86;                   // revealing is always good
+  if(moveType==='recycle') return 25;                // recycling is last resort
+  if(moveType==='draw'){
+    if(hint.type==='draw') return 100;               // perfect: hint said draw
+    return 48;                                        // drew when a move was available
+  }
+  if(destInfo&&destInfo.type==='f'){                 // moved to foundation
+    const hintWasFound=hint.type==='tab-found'||hint.type==='waste-found';
+    return hintWasFound?100:93;                       // foundation is almost always right
+  }
+  if(destInfo&&destInfo.type==='t'){                 // moved to tableau
+    if(hint.type==='draw') return 52;                // hint said draw, player moved
+    if(hint.card&&srcCard&&hint.card.id===srcCard.id){
+      if(hint.toCi===destInfo.ci) return 100;        // perfect: same card, same column
+      return 78;                                      // right card, different column
+    }
+    return 63;                                        // valid but not the hinted move
+  }
+  return 60;
+}
+
+const REWARDS=[
+  {wins:1,  name:'First Light',   gradient:'linear-gradient(135deg,#1a2a1a,#2d4a2d)', icon:'🌱'},
+  {wins:5,  name:'Zen Garden',    gradient:'linear-gradient(135deg,#1a2a35,#2d4a55)', icon:'🪨'},
+  {wins:10, name:'Redwood Grove', gradient:'linear-gradient(135deg,#2a1a0a,#5a3010)', icon:'🌲'},
+  {wins:20, name:'Mountain Lake', gradient:'linear-gradient(135deg,#0a1a2a,#1a3a5a)', icon:'🏔️'},
+  {wins:50, name:'Ocean Sunset',  gradient:'linear-gradient(135deg,#2a1a0a,#8a3010)', icon:'🌅'},
+];
+
+function SpeedChart({times}){
+  const sample=times&&times.length>=2?times.slice(-10):null;
+  const pts=sample?(()=>{
+    const max=Math.max(...sample),min=Math.min(...sample),range=max-min||1,w=72,h=18;
+    return sample.map((t,i)=>`${((i/(sample.length-1))*w).toFixed(1)},${(h-((t-min)/range)*(h-4)-2).toFixed(1)}`).join(' ');
+  })():null;
+  const trendInfo=sample&&sample.length>=4?(()=>{
+    const avg=sample.reduce((s,v)=>s+v,0)/sample.length;
+    const recent=sample.slice(-3).reduce((s,v)=>s+v,0)/3;
+    if(recent<avg*.85) return {label:'↑ Quickening',color:'#5ab875'};
+    if(recent>avg*1.15) return {label:'↓ Slowing',color:'#c87070'};
+    return {label:'→ Steady',color:'#8a7a68'};
+  })():{label:'→ Steady',color:'#8a7a68'};
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:6}}>
+      <svg width={72} height={18}>
+        {pts
+          ?<polyline points={pts} fill="none" stroke="#c8a030" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          :<polyline points="0,11 18,9 36,13 54,7 72,11" fill="none" stroke="#c8a030" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="3,3" opacity=".35"/>
+        }
+      </svg>
+      <span style={{fontSize:10,color:trendInfo.color,lineHeight:1.3,whiteSpace:'nowrap'}}>{trendInfo.label}</span>
+    </div>
+  );
+}
+
+function AccuracyChart({scores}){
+  const sample=scores&&scores.length>=2?scores.slice(-12):null;
+  if(!sample) return (
+    <div style={{fontSize:9,color:T.muted,fontStyle:'italic',paddingTop:2}}>
+      Calibrating…
+    </div>
+  );
+  const avg=Math.round(sample.reduce((a,b)=>a+b,0)/sample.length);
+  const recent3=sample.slice(-3).reduce((a,b)=>a+b,0)/Math.min(3,sample.length);
+  const early3=sample.slice(0,3).reduce((a,b)=>a+b,0)/Math.min(3,sample.length);
+  const diff=recent3-early3;
+  const trend=diff>4?'↑ Improving':diff<-4?'↓ Declining':'→ Steady';
+  const col=avg>=80?'#3a9a62':avg>=60?'#c8a030':'#c05040';
+  const W=72,H=18;
+  const min=Math.max(0,Math.min(...sample)-5);
+  const max=Math.min(100,Math.max(...sample)+5);
+  const rng=Math.max(max-min,10);
+  const pts=sample.map((v,i)=>{
+    const x=(i/(sample.length-1))*W;
+    const y=H-((v-min)/rng)*(H-4)-2;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:6}}>
+      <svg width={W} height={H} style={{overflow:'visible',flexShrink:0,display:'block'}}>
+        <polyline points={pts} fill="none" stroke={col} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round"/>
+        {sample.map((v,i)=>{
+          const x=(i/(sample.length-1))*W;
+          const y=H-((v-min)/rng)*(H-4)-2;
+          return i===sample.length-1?<circle key={i} cx={x} cy={y} r={2.5} fill={col}/>:null;
+        })}
+      </svg>
+      <span style={{fontSize:9,color:col,lineHeight:1.3,whiteSpace:'nowrap'}}>{trend}</span>
+    </div>
+  );
+}
+
+function shuffleArray(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+// ── Gallery tiers ────────────────────────────────────────────────────────────
+// FREE: 3 iconic masterpieces — teases the feature beautifully
+const ARTIC_FREE=[
+  16568,  // Monet – Water Lilies (1906)          ← the hero image
+  27992,  // Seurat – A Sunday on La Grande Jatte ← iconic landscape
+  111628  // Hopper – Nighthawks                  ← instantly recognisable
+];
+// PREMIUM: full gallery (50 works across movements and eras)
+const ARTIC_PREMIUM=[
+  // Monet
+  16568,16571,16581,16572,16544,14598,16546,16558,4381,13721,
+  // Renoir · Seurat · Caillebotte · Pissarro · Sisley
+  14655,16169,27992,20684,14572,16814,22736,
+  // Degas · Cassatt · Morisot · Manet · Boudin
+  79307,16171,24645,14586,25698,
+  // Van Gogh · Gauguin
+  80607,40619,20172,
+  // Toulouse-Lautrec · El Greco · Hopper · Wood
+  11434,16327,111628,6565,73216,
+  // Picasso · Matisse · Chagall · Klimt
+  16487,66039,185184,65416,
+  // American: Homer · Sargent · Whistler · O'Keeffe
+  5848,50330,18523,62371,20432,59426,100250,
+  // Rembrandt · Rubens
+  27984,43060,
+  // Modern
+  111400,87479,28067,34286
+];
+// ── Premium unlock state ──────────────────────────────────────────────────────
+// In production: replaced by StoreKit receipt validation via native bridge.
+// window.premiumUnlocked() is called by the iOS wrapper after a successful IAP.
+function isPremiumUnlocked(){
+  try{ return localStorage.getItem('sol_premium')==='1'; }catch{ return false; }
+}
+function setPremiumUnlocked(){
+  try{ localStorage.setItem('sol_premium','1'); }catch{}
+  // Notify native wrapper if running inside WKWebView (no-op in browser)
+  if(window.webkit?.messageHandlers?.premiumGranted)
+    window.webkit.messageHandlers.premiumGranted.postMessage({});
+}
+// Called by the iOS native layer after StoreKit purchase completes
+window.premiumUnlocked=setPremiumUnlocked;
+const ARTIC_IDS=isPremiumUnlocked()?ARTIC_PREMIUM:ARTIC_FREE;
+function fetchARTICPainting(setUrl,setInfo,attempt){
+  attempt=attempt||0;
+  if(attempt>6) return;
+  const pool=isPremiumUnlocked()?ARTIC_PREMIUM:ARTIC_FREE;
+  const id=pool[Math.floor(Math.random()*pool.length)];
+  fetch('https://api.artic.edu/api/v1/artworks/'+id+'?fields=image_id,title,artist_title,date_display')
+    .then(r=>r.json())
+    .then(d=>{
+      const img=d&&d.data&&d.data.image_id;
+      if(img){
+        setUrl('https://www.artic.edu/iiif/2/'+img+'/full/843,/0/default.jpg');
+        if(setInfo) setInfo({title:d.data.title||'',artist:d.data.artist_title||'',year:d.data.date_display||'',id});
+      } else {
+        // ID had no image — retry with different ID
+        fetchARTICPainting(setUrl,setInfo,attempt+1);
+      }
+    })
+    .catch(()=>{ fetchARTICPainting(setUrl,setInfo,attempt+1); });
+}
+const ZEN_COLS=6,ZEN_ROWS=4,ZEN_TOTAL=ZEN_COLS*ZEN_ROWS; // 24 puzzle pieces
+
+function ZenPuzzle({revealedPieces,paintingUrl}){
+  const W=360,H=130,pw=W/ZEN_COLS,ph=H/ZEN_ROWS;
+  const edgeRef=useRef(null);
+  if(!edgeRef.current){
+    const hE=Array.from({length:ZEN_ROWS},()=>Array.from({length:ZEN_COLS-1},()=>Math.random()<.5?1:-1));
+    const vE=Array.from({length:ZEN_ROWS-1},()=>Array.from({length:ZEN_COLS},()=>Math.random()<.5?1:-1));
+    edgeRef.current={hE,vE};
+  }
+  const {hE,vE}=edgeRef.current;
+  const done=revealedPieces.size;
+  const pct=Math.round(done/ZEN_TOTAL*100);
+  const ts=Math.min(pw,ph)*0.27;
+  const tw=ts*0.52;
+  function seg(ax,ay,bx,by,sign){
+    if(!sign) return `L ${bx.toFixed(1)},${by.toFixed(1)}`;
+    const mx=(ax+bx)/2,my=(ay+by)/2,dx=bx-ax,dy=by-ay,len=Math.sqrt(dx*dx+dy*dy);
+    const nx=dy/len,ny=-dx/len,ox=nx*sign*ts,oy=ny*sign*ts;
+    const hx=dx/len*tw,hy=dy/len*tw;
+    const p1x=mx-hx,p1y=my-hy,p2x=mx+hx,p2y=my+hy;
+    return `L ${p1x.toFixed(1)},${p1y.toFixed(1)} C ${(p1x+ox).toFixed(1)},${(p1y+oy).toFixed(1)} ${(p2x+ox).toFixed(1)},${(p2y+oy).toFixed(1)} ${p2x.toFixed(1)},${p2y.toFixed(1)} L ${bx.toFixed(1)},${by.toFixed(1)}`;
+  }
+  function piecePath(col,row){
+    const x0=col*pw,y0=row*ph,x1=(col+1)*pw,y1=(row+1)*ph;
+    let d=`M ${x0.toFixed(1)},${y0.toFixed(1)}`;
+    d+=' '+(row===0?`L ${x1.toFixed(1)},${y0.toFixed(1)}`:seg(x0,y0,x1,y0,vE[row-1][col]===1?-1:1));
+    d+=' '+(col===ZEN_COLS-1?`L ${x1.toFixed(1)},${y1.toFixed(1)}`:seg(x1,y0,x1,y1,hE[row][col]===1?1:-1));
+    d+=' '+(row===ZEN_ROWS-1?`L ${x0.toFixed(1)},${y1.toFixed(1)}`:seg(x1,y1,x0,y1,vE[row][col]===1?1:-1));
+    d+=' '+(col===0?`L ${x0.toFixed(1)},${y0.toFixed(1)}`:seg(x0,y1,x0,y0,hE[row][col-1]===1?-1:1));
+    return d+' Z';
+  }
+  return (
+    <div style={{position:'relative',width:'100%',height:'100%',overflow:'hidden'}}>
+      {/* Painting: HTML img tag for crisp rendering */}
+      {paintingUrl
+        ? <img src={paintingUrl} alt="masterpiece" style={{position:'absolute',inset:0,width:'100%',height:'100%',objectFit:'cover',objectPosition:'center',display:'block'}}/>
+        : <div style={{position:'absolute',inset:0,background:'#1a2a35'}}/>
+      }
+      {/* Jigsaw overlay SVG */}
+      <svg width="100%" height="100%" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid slice"
+           style={{position:'absolute',inset:0,pointerEvents:'none'}}>
+        <defs>
+          <clipPath id="zp_clip"><rect width={W} height={H}/></clipPath>
+        </defs>
+        <g clipPath="url(#zp_clip)">
+          {/* Jigsaw covers — dark fill for unrevealed pieces */}
+          {Array.from({length:ZEN_TOTAL},(_,i)=>{
+            if(revealedPieces.has(i)) return null;
+            const col=i%ZEN_COLS,row=Math.floor(i/ZEN_COLS);
+            return <path key={i} d={piecePath(col,row)} fill="rgba(10,7,3,.91)" stroke="none"/>;
+          })}
+          {/* Jigsaw borders — always drawn so puzzle shape is visible */}
+          {Array.from({length:ZEN_TOTAL},(_,i)=>{
+            const col=i%ZEN_COLS,row=Math.floor(i/ZEN_COLS);
+            const revealed=revealedPieces.has(i);
+            return <path key={i} d={piecePath(col,row)} fill="none"
+              stroke={revealed?"rgba(255,230,160,.55)":"rgba(255,255,255,.13)"}
+              strokeWidth={revealed?"1.1":".55"}/>;
+          })}
+          {done===0&&<text x={W/2} y={H/2+4} textAnchor="middle" fill="rgba(220,190,140,.5)" fontSize="10" fontFamily="Georgia,serif">Make good moves to reveal the painting…</text>}
+          {done>0&&done<ZEN_TOTAL&&<text x={W-6} y="14" textAnchor="end" fill="rgba(220,190,140,.65)" fontSize="9" fontFamily="Georgia,serif">{pct}% revealed</text>}
+          {done===ZEN_TOTAL&&<text x={W/2} y={H-6} textAnchor="middle" fill="rgba(255,240,180,.9)" fontSize="9" fontFamily="Georgia,serif">Masterpiece complete ✦</text>}
+        </g>
+      </svg>
+    </div>
+  );
+}
+function NatureScene({name,zenPieces,paintingUrl}){
+  const id=name.replace(/\s/g,'_');
+  if(name==='First Light') return (
+    <svg width="100%" height="100%" viewBox="0 0 360 130" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id={id+'_sky'} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#1a0a2e"/>
+          <stop offset="45%" stopColor="#8b3a2a"/>
+          <stop offset="75%" stopColor="#e8742a"/>
+          <stop offset="100%" stopColor="#f5c060"/>
+        </linearGradient>
+        <radialGradient id={id+'_sun'} cx="50%" cy="78%" r="22%">
+          <stop offset="0%" stopColor="#fff7c0" stopOpacity="1"/>
+          <stop offset="40%" stopColor="#f5c060" stopOpacity="0.8"/>
+          <stop offset="100%" stopColor="#e8742a" stopOpacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect width="360" height="130" fill={`url(#${id}_sky)`}/>
+      <ellipse cx="180" cy="102" rx="110" ry="70" fill={`url(#${id}_sun)`}/>
+      <ellipse cx="180" cy="102" rx="14" ry="14" fill="#fff9d0"/>
+      <path d="M0,88 Q60,70 110,80 Q160,92 180,82 Q210,70 260,78 Q310,86 360,74 L360,130 L0,130Z" fill="#0d1a08"/>
+      <path d="M0,100 Q80,86 140,95 Q200,104 250,92 Q300,80 360,90 L360,130 L0,130Z" fill="#081205"/>
+      <path d="M0,115 Q90,108 180,112 Q270,116 360,110 L360,130 L0,130Z" fill="#060e04"/>
+    </svg>
+  );
+  if(name==='Zen Garden') return <ZenPuzzle revealedPieces={zenPieces||new Set()} paintingUrl={paintingUrl}/>;
+  if(name==='Redwood Grove') return (
+    <svg width="100%" height="100%" viewBox="0 0 360 130" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id={id+'_sky'} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0a0604"/>
+          <stop offset="100%" stopColor="#3a1a08"/>
+        </linearGradient>
+        <radialGradient id={id+'_glow'} cx="50%" cy="25%" r="45%">
+          <stop offset="0%" stopColor="#e8a030" stopOpacity="0.5"/>
+          <stop offset="100%" stopColor="#e8a030" stopOpacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect width="360" height="130" fill={`url(#${id}_sky)`}/>
+      <ellipse cx="180" cy="30" rx="100" ry="65" fill={`url(#${id}_glow)`}/>
+      <rect x="38" y="25" width="13" height="105" rx="2" fill="#0c0501"/>
+      <rect x="100" y="10" width="17" height="120" rx="2" fill="#090401"/>
+      <rect x="165" y="2" width="20" height="128" rx="2" fill="#0c0501"/>
+      <rect x="232" y="14" width="15" height="116" rx="2" fill="#090401"/>
+      <rect x="300" y="28" width="12" height="102" rx="2" fill="#0c0501"/>
+      <ellipse cx="44" cy="22" rx="38" ry="46" fill="#06100302"/>
+      <ellipse cx="44" cy="22" rx="38" ry="46" fill="#061003"/>
+      <ellipse cx="109" cy="6" rx="46" ry="54" fill="#050e02"/>
+      <ellipse cx="175" cy="-4" rx="52" ry="58" fill="#061003"/>
+      <ellipse cx="240" cy="8" rx="42" ry="50" fill="#050e02"/>
+      <ellipse cx="306" cy="24" rx="34" ry="42" fill="#061003"/>
+      <polygon points="180,0 100,35 260,35" fill="rgba(232,160,48,0.04)"/>
+      <polygon points="180,0 130,60 230,60" fill="rgba(232,160,48,0.03)"/>
+      <rect x="0" y="98" width="360" height="32" fill="rgba(10,5,2,0.55)"/>
+      <ellipse cx="180" cy="128" rx="210" ry="20" fill="#040e02"/>
+    </svg>
+  );
+  if(name==='Mountain Lake') return (
+    <svg width="100%" height="100%" viewBox="0 0 360 130" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id={id+'_sky'} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#0a1828"/>
+          <stop offset="60%" stopColor="#1a3a58"/>
+          <stop offset="100%" stopColor="#2a5a78"/>
+        </linearGradient>
+        <linearGradient id={id+'_lake'} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#1a3a58" stopOpacity="0.9"/>
+          <stop offset="100%" stopColor="#0a1828"/>
+        </linearGradient>
+      </defs>
+      <rect width="360" height="130" fill={`url(#${id}_sky)`}/>
+      <polygon points="0,72 55,28 110,58 155,18 200,55 250,22 305,60 360,30 360,72" fill="#e8eef4"/>
+      <polygon points="0,72 55,38 110,62 155,28 200,60 250,32 305,64 360,40 360,72" fill="#c8d8e8"/>
+      <polygon points="0,72 45,48 90,68 155,38 200,65 260,42 310,66 360,50 360,72" fill="#a8b8c8"/>
+      <rect x="0" y="72" width="360" height="58" fill={`url(#${id}_lake)`}/>
+      <polygon points="0,72 55,106 110,82 155,112 200,85 250,108 305,86 360,100 360,72" fill="#1a3a58" opacity="0.6"/>
+      {[0,1,2,3,4].map(i=>(
+        <line key={i} x1={30+i*70} y1={80+i%2*8} x2={80+i*70} y2={80+i%2*8} stroke="rgba(255,255,255,0.08)" strokeWidth="1.5"/>
+      ))}
+      <ellipse cx="180" cy="20" rx="8" ry="8" fill="#f0f4f8" opacity="0.9"/>
+    </svg>
+  );
+  return (
+    <svg width="100%" height="100%" viewBox="0 0 360 130" preserveAspectRatio="xMidYMid slice">
+      <defs>
+        <linearGradient id={id+'_sky'} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#1a0a2e"/>
+          <stop offset="30%" stopColor="#8b2a6a"/>
+          <stop offset="60%" stopColor="#e8603a"/>
+          <stop offset="85%" stopColor="#f5a030"/>
+          <stop offset="100%" stopColor="#c87830"/>
+        </linearGradient>
+        <radialGradient id={id+'_sun'} cx="50%" cy="55%" r="25%">
+          <stop offset="0%" stopColor="#fff0b0" stopOpacity="1"/>
+          <stop offset="50%" stopColor="#f5a030" stopOpacity="0.6"/>
+          <stop offset="100%" stopColor="#e8603a" stopOpacity="0"/>
+        </radialGradient>
+      </defs>
+      <rect width="360" height="130" fill={`url(#${id}_sky)`}/>
+      <ellipse cx="180" cy="72" rx="130" ry="80" fill={`url(#${id}_sun)`}/>
+      <ellipse cx="180" cy="72" rx="16" ry="16" fill="#fff8d0"/>
+      <rect x="0" y="78" width="360" height="52" fill="#0a1828" opacity="0.85"/>
+      {[0,1,2,3,4,5].map(i=>(
+        <ellipse key={i} cx={30+i*60} cy={92+i%2*6} rx={35-i%3*5} ry={5+i%2*2} fill="rgba(240,160,48,0.12)"/>
+      ))}
+      <path d="M0,78 Q30,72 60,76 Q90,80 120,74 Q150,68 180,72 Q210,76 240,70 Q270,64 300,70 Q330,76 360,72 L360,130 L0,130Z" fill="#0a1828"/>
+    </svg>
+  );
+}
+
+function RewardCard({gamesWon,zenPieces,paintingUrl,paintingInfo,fillHeight,premium,onPurchase}){
+  const [showPaintingInfo,setShowPaintingInfo]=useState(false);
+  const unlocked=REWARDS.filter(r=>r.wins<=gamesWon);
+  const current=unlocked[unlocked.length-1]||null;
+  const next=REWARDS.find(r=>r.wins>gamesWon);
+  const displayScene=current||REWARDS[0];
+  const base=current?current.wins:0;
+  const target=next?next.wins:REWARDS[REWARDS.length-1].wins;
+  const pct=next?Math.min(1,(gamesWon-base)/(target-base)):1;
+  return (
+    <>
+    <div style={{position:'relative',borderRadius:10,overflow:'hidden',marginTop:fillHeight?0:8,height:fillHeight?'100%':130,minHeight:fillHeight?140:130,boxShadow:'0 4px 20px rgba(0,0,0,.5)'}}>
+      <div style={{position:'absolute',inset:0}}>
+        <NatureScene name={displayScene.name} zenPieces={zenPieces} paintingUrl={paintingUrl}/>
+      </div>
+      <div style={{position:'absolute',inset:0,background:'linear-gradient(to top, rgba(0,0,0,.82) 0%, rgba(0,0,0,.3) 50%, transparent 100%)'}}/>
+      {/* Upgrade teaser — only shown in free tier when Zen Garden is active */}
+      {!premium&&displayScene.name==='Zen Garden'&&(
+        <div style={{position:'absolute',top:6,right:6,zIndex:10}}>
+          <button onClick={onPurchase} style={{background:'linear-gradient(135deg,#c8a030,#f0d060)',border:'none',borderRadius:8,padding:'4px 8px',fontSize:9,color:'#1a0f00',fontFamily:'Georgia,serif',cursor:'pointer',fontWeight:'bold',letterSpacing:.3,boxShadow:'0 2px 8px rgba(200,160,48,.5)'}}>
+            🖼 Unlock 50+ paintings
+          </button>
+        </div>
+      )}
+      <div style={{position:'absolute',bottom:0,left:0,right:0,padding:'0 12px 10px',pointerEvents:'auto'}}>
+        {displayScene.name==='Zen Garden'&&paintingInfo?(
+          <div style={{display:'flex',alignItems:'center',gap:6}}>
+            <span style={{fontSize:10,color:'rgba(240,220,180,.65)',textShadow:'0 1px 4px rgba(0,0,0,.9)',whiteSpace:'nowrap',overflow:'hidden',textOverflow:'ellipsis',flex:1}}>{paintingInfo.artist}{paintingInfo.year?` · ${paintingInfo.year}`:''}</span>
+            <button onClick={()=>setShowPaintingInfo(true)} style={{background:'rgba(255,255,255,.1)',border:'1px solid rgba(255,255,255,.18)',borderRadius:4,color:'rgba(240,220,180,.75)',fontSize:9,cursor:'pointer',padding:'2px 6px',flexShrink:0,fontFamily:'Georgia,serif',letterSpacing:.3,pointerEvents:'auto'}}>info</button>
+          </div>
+        ):(
+          <div>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-end',marginBottom:5}}>
+              <div>
+                <div style={{fontSize:13,color:'#f0e8d0',fontFamily:'Georgia,serif',letterSpacing:.3,textShadow:'0 1px 4px rgba(0,0,0,.8)'}}>{displayScene.icon} {displayScene.name}</div>
+                <div style={{fontSize:9,color:'rgba(240,220,180,.65)',marginTop:1}}>
+                  {next?`Next: ${next.icon} ${next.name} · ${next.wins-gamesWon} ${next.wins-gamesWon===1?'win':'wins'} away`:'All rewards unlocked 🌟'}
+                </div>
+              </div>
+              {!next&&<span style={{fontSize:18}}>🌟</span>}
+            </div>
+            {next&&(
+              <div style={{height:3,background:'rgba(255,255,255,.15)',borderRadius:2,overflow:'hidden'}}>
+                <div style={{height:'100%',width:`${pct*100}%`,background:'linear-gradient(90deg,#c8a030,#f0d060)',borderRadius:2,transition:'width .6s ease',boxShadow:'0 0 6px rgba(200,160,48,.6)'}}/>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+    {showPaintingInfo&&ReactDOM.createPortal(
+      <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.78)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:400,animation:'fadeIn .18s ease'}} onClick={()=>setShowPaintingInfo(false)}>
+        <div className="lg" style={{background:'rgba(18,14,8,.97)',border:'1px solid rgba(255,220,130,.15)',borderRadius:14,padding:'28px 24px 22px',maxWidth:310,width:'88%',textAlign:'center',boxShadow:'0 24px 64px rgba(0,0,0,.95)'}} onClick={e=>e.stopPropagation()}>
+          <div style={{fontSize:28,marginBottom:10}}>🖼</div>
+          <div style={{fontSize:14,color:'#f0e8d0',fontFamily:'Georgia,serif',fontStyle:'italic',marginBottom:8,lineHeight:1.5}}>{paintingInfo&&paintingInfo.title}</div>
+          <div style={{fontSize:12,color:'rgba(240,220,180,.75)',marginBottom:4}}>{paintingInfo&&paintingInfo.artist}</div>
+          {paintingInfo&&paintingInfo.year&&<div style={{fontSize:11,color:'rgba(240,220,180,.45)',marginBottom:14}}>{paintingInfo.year}</div>}
+          <div style={{fontSize:10,color:'rgba(240,220,180,.3)',marginBottom:18,letterSpacing:.3}}>Art Institute of Chicago · Public Domain</div>
+          {paintingInfo&&paintingInfo.id&&<a href={`https://www.artic.edu/artworks/${paintingInfo.id}`} target="_blank" rel="noopener noreferrer" style={{display:'inline-block',padding:'8px 18px',background:'#c8a030',borderRadius:8,color:'#1a0f00',fontSize:12,textDecoration:'none',fontFamily:'Georgia,serif',letterSpacing:.3}}>View at ARTIC ↗</a>}
+          {!premium&&(
+            <div style={{marginTop:14,padding:'10px 14px',background:'rgba(200,160,48,.08)',border:'1px solid rgba(200,160,48,.2)',borderRadius:8}}>
+              <div style={{fontSize:10,color:'rgba(240,220,180,.6)',marginBottom:6}}>3 of 50+ paintings · Free tier</div>
+              <button onClick={()=>{setShowPaintingInfo(false);if(onPurchase)onPurchase();}} style={{width:'100%',padding:'8px',background:'linear-gradient(135deg,#c8a030,#f0d060)',border:'none',borderRadius:7,color:'#1a0f00',fontSize:12,fontFamily:'Georgia,serif',cursor:'pointer',fontWeight:'bold'}}>Unlock Full Gallery →</button>
+            </div>
+          )}
+          <div style={{marginTop:12}}><button onClick={()=>setShowPaintingInfo(false)} style={{background:'none',border:'none',color:'rgba(240,220,180,.35)',fontSize:12,cursor:'pointer',fontFamily:'Georgia,serif'}}>Close</button></div>
+        </div>
+      </div>,
+      document.body
+    )}
+    </>
+  );
+}
+
+// ── SoundEngine: elegant Web Audio sounds ──────────────────────
+const SoundEngine={
+  _ctx:null,
+  ctx(){ if(!this._ctx) this._ctx=new(window.AudioContext||window.webkitAudioContext)(); return this._ctx; },
+  v(s){ return s===2?1:s===1?0.32:0; },
+  flip(s){ const v=this.v(s); if(!v) return; try{
+    const c=this.ctx(),t=c.currentTime,o=c.createOscillator(),g=c.createGain();
+    o.connect(g);g.connect(c.destination);o.type='triangle';
+    o.frequency.setValueAtTime(1100,t);o.frequency.exponentialRampToValueAtTime(480,t+.08);
+    g.gain.setValueAtTime(.22*v,t);g.gain.exponentialRampToValueAtTime(.001,t+.11);
+    o.start(t);o.stop(t+.11);}catch{}},
+  place(s,n=1){ const v=this.v(s); if(!v) return; try{
+    const c=this.ctx(),t=c.currentTime;
+    // Layer 1: paper swish — noise swept high→mid (card sliding sound)
+    const sw=Math.floor(c.sampleRate*.10),sbuf=c.createBuffer(1,sw,c.sampleRate),sd=sbuf.getChannelData(0);
+    for(let i=0;i<sw;i++) sd[i]=(Math.random()*2-1)*Math.pow(1-i/sw,.7);
+    const ss=c.createBufferSource();ss.buffer=sbuf;
+    const hp=c.createBiquadFilter();hp.type='highpass';
+    hp.frequency.setValueAtTime(2400,t);hp.frequency.exponentialRampToValueAtTime(380,t+.08);
+    const lp=c.createBiquadFilter();lp.type='lowpass';lp.frequency.value=4000;
+    const sg=c.createGain();sg.gain.setValueAtTime(.28*v,t);sg.gain.exponentialRampToValueAtTime(.001,t+.10);
+    ss.connect(hp);hp.connect(lp);lp.connect(sg);sg.connect(c.destination);ss.start(t);
+    // Layer 2: wooden thud — low sine at landing, deeper for bigger stacks
+    const freq=Math.max(55,90-n*6);
+    const o=c.createOscillator(),og=c.createGain();
+    o.connect(og);og.connect(c.destination);o.type='sine';o.frequency.value=freq;
+    og.gain.setValueAtTime(0,t+.05);og.gain.linearRampToValueAtTime((.38+Math.min(n-1,.4)*.15)*v,t+.08);
+    og.gain.exponentialRampToValueAtTime(.001,t+.22);o.start(t+.05);o.stop(t+.22);
+    // Layer 3: light click transient at moment of landing
+    const bl=Math.floor(c.sampleRate*.012),bb=c.createBuffer(1,bl,c.sampleRate),bd=bb.getChannelData(0);
+    for(let i=0;i<bl;i++) bd[i]=(Math.random()*2-1)*(1-i/bl);
+    const bs=c.createBufferSource();bs.buffer=bb;
+    const bf=c.createBiquadFilter();bf.type='bandpass';bf.frequency.value=1800;
+    const bg2=c.createGain();bg2.gain.setValueAtTime(.18*v,t+.05);
+    bs.connect(bf);bf.connect(bg2);bg2.connect(c.destination);bs.start(t+.05);
+  }catch{}},
+  foundation(s){ const v=this.v(s); if(!v) return; try{
+    const c=this.ctx(),t=c.currentTime;
+    [[523,0],[659,.07],[784,.14],[1047,.22]].forEach(([f,d])=>{
+      const o=c.createOscillator(),g=c.createGain();
+      o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.value=f;
+      g.gain.setValueAtTime(0,t+d);g.gain.linearRampToValueAtTime(.16*v,t+d+.025);
+      g.gain.exponentialRampToValueAtTime(.001,t+d+.4);o.start(t+d);o.stop(t+d+.4);});}catch{}},
+  draw(s){ const v=this.v(s); if(!v) return; try{
+    const c=this.ctx(),t=c.currentTime,o=c.createOscillator(),g=c.createGain();
+    o.connect(g);g.connect(c.destination);o.type='sine';
+    o.frequency.setValueAtTime(240,t);o.frequency.exponentialRampToValueAtTime(540,t+.07);
+    g.gain.setValueAtTime(.13*v,t);g.gain.exponentialRampToValueAtTime(.001,t+.1);
+    o.start(t);o.stop(t+.1);}catch{}},
+  recycle(s){ const v=this.v(s); if(!v) return; try{
+    const c=this.ctx(),t=c.currentTime;
+    [400,320,240].forEach((f,i)=>{
+      const o=c.createOscillator(),g=c.createGain();
+      o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.value=f;
+      g.gain.setValueAtTime(.1*v,t+i*.06);g.gain.exponentialRampToValueAtTime(.001,t+i*.06+.1);
+      o.start(t+i*.06);o.stop(t+i*.06+.1);});}catch{}},
+  undo(s){ const v=this.v(s); if(!v) return; try{
+    const c=this.ctx(),t=c.currentTime,o=c.createOscillator(),g=c.createGain();
+    o.connect(g);g.connect(c.destination);o.type='sine';
+    o.frequency.setValueAtTime(440,t);o.frequency.exponentialRampToValueAtTime(260,t+.1);
+    g.gain.setValueAtTime(.14*v,t);g.gain.exponentialRampToValueAtTime(.001,t+.13);
+    o.start(t);o.stop(t+.13);}catch{}},
+  win(s){ const v=this.v(s); if(!v) return; try{
+    const c=this.ctx(),t=c.currentTime;
+    [523,659,784,1047,1319,1047,784,1047,1319].forEach((f,i)=>{
+      const o=c.createOscillator(),g=c.createGain();
+      o.connect(g);g.connect(c.destination);o.type='sine';o.frequency.value=f;
+      g.gain.setValueAtTime(0,t+i*.11);g.gain.linearRampToValueAtTime(.22*v,t+i*.11+.025);
+      g.gain.exponentialRampToValueAtTime(.001,t+i*.11+.55);o.start(t+i*.11);o.stop(t+i*.11+.55);});}catch{}},
+};
+
+function SettingsOverlay({playerName,onRename,onClose,sounds,onSounds,drawMode,onDrawMode,assist,onAssist,reduceAnim,onReduceAnim,showTimeMoves,onShowTimeMoves,gamesWon,gamesPlayed,ritual,onRitual,feltTexture,onFeltTexture,onStats}){
+  const [name,setName]=useState(playerName);
+  const Sec=({title})=><div style={{background:'#1a2540',padding:'7px 16px',fontSize:10,color:'#7090c0',letterSpacing:1,textTransform:'uppercase'}}>{title}</div>;
+  const Row=({label,sub,right})=>(
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
+      <div style={{flex:1,paddingRight:12}}><div style={{fontSize:14,color:T.text}}>{label}</div>{sub&&<div style={{fontSize:10,color:T.muted,marginTop:2,lineHeight:1.4}}>{sub}</div>}</div>
+      <div style={{flexShrink:0}}>{right}</div>
+    </div>
+  );
+  const TriBtn=({opts,val,onVal})=>(
+    <div style={{display:'flex',borderRadius:6,overflow:'hidden',border:'1px solid rgba(200,160,48,.3)'}}>
+      {opts.map(o=><button key={o} onClick={()=>onVal(o)} style={{padding:'5px 9px',fontSize:11,border:'none',cursor:'pointer',background:val===o?T.gold:'#252318',color:val===o?'#1a0f00':T.muted,fontFamily:'Georgia,serif',whiteSpace:'nowrap'}}>{o}</button>)}
+    </div>
+  );
+  const Toggle=({checked,onChange})=>(
+    <div onClick={onChange} style={{width:22,height:22,border:`1.5px solid ${checked?T.gold:T.muted}`,borderRadius:4,background:checked?T.gold:'transparent',display:'flex',alignItems:'center',justifyContent:'center',cursor:'pointer',flexShrink:0}}>
+      {checked&&<span style={{fontSize:12,color:'#1a0f00',fontWeight:'bold',lineHeight:1}}>✓</span>}
+    </div>
+  );
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(10,14,28,.97)',zIndex:200,display:'flex',flexDirection:'column'}}>
+      <div style={{background:'#131929',padding:'14px 16px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:'1px solid rgba(255,255,255,.07)',flexShrink:0}}>
+        <div style={{width:32}}/>
+        <h2 style={{fontSize:17,color:T.text,fontWeight:'normal',letterSpacing:.5}}>Settings</h2>
+        <button onClick={onClose} style={{background:'none',border:'none',color:T.muted,fontSize:18,cursor:'pointer',width:32,lineHeight:1}}>✕</button>
+      </div>
+      <div style={{flex:1,overflowY:'auto'}}>
+        <Row label="Sounds" right={<TriBtn opts={['Off','Reduced','On']} val={sounds===2?'On':sounds===1?'Reduced':'Off'} onVal={v=>onSounds({On:2,Reduced:1,Off:0}[v])}/>}/>
+        <Sec title="Progress Ritual"/>
+        {ritual&&RITUAL.map((item,i)=>(
+          <Row key={i} label={item} right={<Toggle checked={ritual[i]} onChange={()=>onRitual&&onRitual(i)}/>}/>
+        ))}
+        <Sec title="Assistance"/>
+        {[['Manual','No auto-moves'],['Auto Aces','Auto-move Aces to foundation'],['Auto All','Auto-collect all safe cards']].map(([lbl,sub],i)=>(
+          <div key={i} onClick={()=>onAssist(i)} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'12px 16px',borderBottom:'1px solid rgba(255,255,255,.05)',cursor:'pointer'}}>
+            <div style={{flex:1,paddingRight:12}}>
+              <div style={{fontSize:14,color:assist===i?T.gold:T.text}}>{lbl}</div>
+              <div style={{fontSize:10,color:T.muted,marginTop:2}}>{sub}</div>
+            </div>
+            <div style={{width:20,height:20,borderRadius:'50%',border:`2px solid ${assist===i?T.gold:T.muted}`,background:assist===i?T.gold:'transparent',flexShrink:0}}/>
+          </div>
+        ))}
+        <Sec title="Game Mode"/>
+        <Row label="Draw Option" sub="Cards flipped per stock tap" right={<TriBtn opts={['Draw 1','Draw 3']} val={`Draw ${drawMode}`} onVal={v=>onDrawMode(v==='Draw 1'?1:3)}/>}/>
+        <Sec title="Preferences"/>
+        <Row label="Quick Play" sub="Auto-move cards to Foundation" right={<Toggle checked={assist>0} onChange={()=>onAssist(assist>0?0:1)}/>}/>
+        <Row label="Auto All" sub="Auto-collect all safe cards" right={<Toggle checked={assist===2} onChange={()=>onAssist(assist===2?0:2)}/>}/>
+        <Row label="Reduce Animations" sub="Faster card movements" right={<Toggle checked={reduceAnim} onChange={()=>onReduceAnim(!reduceAnim)}/>}/>
+        <Row label="Felt Table Texture" sub="Classic card-table look" right={<Toggle checked={!!feltTexture} onChange={()=>onFeltTexture&&onFeltTexture(!feltTexture)}/>}/>
+        <Row label="Show Time & Moves" right={<Toggle checked={showTimeMoves} onChange={()=>onShowTimeMoves(!showTimeMoves)}/>}/>
+        <Sec title="Player"/>
+        <div style={{padding:'12px 16px',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
+          <label style={{display:'block',fontSize:10,color:T.muted,marginBottom:6,letterSpacing:.5}}>PLAYER NAME</label>
+          <input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&name.trim()&&(onRename(name.trim()),onClose())}
+            style={{width:'100%',padding:'10px 12px',background:'#1e1c14',border:`1.5px solid ${T.cardBorder}`,borderRadius:7,color:T.text,fontSize:15,fontFamily:'Georgia,serif'}}/>
+        </div>
+        <Sec title="Statistics"/>
+        <Row label="Games Won" right={<span style={{color:T.gold,fontSize:14,fontWeight:'bold'}}>{gamesWon}</span>}/>
+        <Row label="Games Played" right={<span style={{color:T.gold,fontSize:14,fontWeight:'bold'}}>{gamesPlayed}</span>}/>
+        <Row label="Win Rate" right={<span style={{color:T.gold,fontSize:14}}>{gamesPlayed>0?Math.round(gamesWon/gamesPlayed*100):0}%</span>}/>
+        <div style={{padding:'10px 16px',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
+          <button onClick={onStats} className="btn" style={{width:'100%',padding:'10px',background:'rgba(200,160,48,.1)',border:'1px solid rgba(200,160,48,.25)',borderRadius:8,color:T.gold,fontSize:13,fontFamily:'Georgia,serif',cursor:'pointer',letterSpacing:.3}}>View Session Stats →</button>
+        </div>
+        <Sec title="Information"/>
+        <Row label="Version" right={<span style={{color:T.muted,fontSize:12}}>1.0</span>}/>
+        <Row label="Every deal is winnable" right={<span style={{color:'#3a7a52',fontSize:12}}>✓</span>}/>
+        <div style={{height:32}}/>
+      </div>
+      <div style={{padding:'12px 16px',background:'#131929',borderTop:'1px solid rgba(255,255,255,.07)',flexShrink:0}}>
+        <button onClick={()=>{if(name.trim())onRename(name.trim());onClose();}} className="btn"
+          style={{width:'100%',padding:'13px',background:T.gold,border:'none',borderRadius:9,color:'#1a0f00',fontSize:15,fontFamily:'Georgia,serif',cursor:'pointer',letterSpacing:.3}}>Done</button>
+      </div>
+    </div>
+  );
+}
+
+
+
+function BrainAgeModal({birthYear,moveTimes,moveAccuracy,history,onClose}){
+  const [tab,setTab]=useState('history');
+  const curYr=new Date().getFullYear();
+  const actualAge=birthYear&&birthYear>1900?curYr-birthYear:null;
+  const hasData=moveTimes.length>=5&&moveAccuracy.length>=5;
+  let brainAge=null,perf=null,spdScore=null,avgAcc=null,avgSpd=null;
+  if(hasData){
+    avgSpd=moveTimes.reduce((a,b)=>a+b,0)/moveTimes.length;
+    avgAcc=moveAccuracy.reduce((a,b)=>a+b,0)/moveAccuracy.length;
+    spdScore=Math.max(0,Math.min(100,(8-avgSpd)/6.5*100));
+    perf=spdScore*0.42+avgAcc*0.58;
+    brainAge=Math.round(22+(100-perf)/100*58);
+  }
+  const ageCol=!brainAge?T.muted:brainAge<=35?'#3a9a62':brainAge<=50?'#c8a030':brainAge<=62?'#c07840':'#c05040';
+  const hist=history||[];
+
+  // Chart
+  const W=280,H=80;
+  let chartPts=null;
+  if(hist.length>=2){
+    const ages=hist.map(h=>h.ba);
+    const mn=Math.max(10,Math.min(...ages)-5),mx=Math.min(90,Math.max(...ages)+5),rng=mx-mn||1;
+    chartPts=hist.map((h,i)=>`${((i/(hist.length-1))*W).toFixed(1)},${(H-((h.ba-mn)/rng)*(H-12)-4).toFixed(1)}`).join(' ');
+  }
+
+  // Trend
+  let trend='',trendCol=T.muted;
+  if(hist.length>=3){
+    const r=hist.slice(-3).map(h=>h.ba),e=hist.slice(0,3).map(h=>h.ba);
+    const d=(r.reduce((a,b)=>a+b,0)/3)-(e.reduce((a,b)=>a+b,0)/3);
+    if(d<=-2){trend='↓ Improving';trendCol='#3a9a62';}
+    else if(d>=2){trend='↑ Rising';trendCol='#c05040';}
+    else{trend='→ Stable';trendCol=T.gold;}
+  }
+
+  const TabBtn=({id,label})=>(
+    <button onClick={()=>setTab(id)}
+      style={{flex:1,padding:'10px 0',background:'transparent',border:'none',
+        borderBottom:`2px solid ${tab===id?T.gold:'transparent'}`,
+        color:tab===id?T.gold:T.muted,fontSize:11,cursor:'pointer',letterSpacing:.8,transition:'all .15s'}}>
+      {label}
+    </button>
+  );
+
+  return ReactDOM.createPortal(
+    <div onClick={e=>{if(e.target===e.currentTarget)onClose();}}
+      style={{position:'fixed',inset:0,background:'rgba(0,0,0,.78)',display:'flex',alignItems:'center',
+        justifyContent:'center',zIndex:250,animation:'fadeIn .18s ease'}}>
+      <div className="lg" style={{background:'rgba(18,16,10,.97)',border:'1px solid rgba(255,220,130,.13)',
+        borderRadius:16,width:'92%',maxWidth:360,maxHeight:'88vh',display:'flex',flexDirection:'column',
+        boxShadow:'0 32px 80px rgba(0,0,0,.95)',overflow:'hidden'}}>
+
+        {/* Header */}
+        <div style={{padding:'18px 20px 12px',borderBottom:'1px solid rgba(255,255,255,.07)',
+          display:'flex',justifyContent:'space-between',alignItems:'center',flexShrink:0}}>
+          <div>
+            <div style={{fontSize:10,color:T.muted,letterSpacing:1.2,textTransform:'uppercase',marginBottom:3}}>Cognitive Profile</div>
+            <div style={{fontSize:18,color:T.text,fontFamily:'Georgia,serif'}}>Brain Age</div>
+          </div>
+          <div style={{textAlign:'center'}}>
+            {brainAge?(
+              <div>
+                <div style={{fontSize:44,color:ageCol,fontFamily:'Georgia,serif',lineHeight:1}}>{brainAge}</div>
+                <div style={{fontSize:10,color:ageCol,marginTop:3}}>
+                  {actualAge?(brainAge<actualAge?`${actualAge-brainAge}y younger`:`${brainAge-actualAge}y older`):'vs population'}
+                </div>
+              </div>
+            ):(
+              <div style={{fontSize:12,color:T.muted,fontStyle:'italic'}}>Play 5+ moves</div>
+            )}
+          </div>
+          <button onClick={onClose} style={{background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,255,255,.12)',
+            borderRadius:8,color:T.muted,fontSize:14,cursor:'pointer',padding:'6px 14px'}}>✕</button>
+        </div>
+
+        {/* Tabs */}
+        <div style={{display:'flex',borderBottom:'1px solid rgba(255,255,255,.07)',flexShrink:0}}>
+          <TabBtn id="history" label="SESSION HISTORY"/>
+          <TabBtn id="about" label="HOW IT WORKS"/>
+        </div>
+
+        {/* Body */}
+        <div style={{flex:1,overflowY:'auto',padding:'16px 20px'}}>
+          {tab==='history'&&(
+            <div>
+              {hasData&&(
+                <div style={{display:'flex',gap:8,marginBottom:16}}>
+                  {[['Avg Speed',`${avgSpd.toFixed(1)}s`],['Decision Acc.',`${Math.round(avgAcc)}%`],['Perf. Score',`${Math.round(perf)}/100`]].map(([l,v])=>(
+                    <div key={l} style={{flex:1,background:'rgba(255,255,255,.04)',borderRadius:8,padding:'8px 6px',textAlign:'center'}}>
+                      <div style={{fontSize:9,color:T.muted,marginBottom:4,letterSpacing:.3}}>{l}</div>
+                      <div style={{fontSize:14,color:T.text,fontFamily:'Georgia,serif'}}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {chartPts?(
+                <div>
+                  <div style={{display:'flex',justifyContent:'space-between',marginBottom:6}}>
+                    <div style={{fontSize:9,color:T.muted,letterSpacing:.8}}>PAST {hist.length} GAMES</div>
+                    {trend&&<div style={{fontSize:9,color:trendCol,fontWeight:'bold'}}>{trend}</div>}
+                  </div>
+                  <svg width="100%" viewBox={`0 0 ${W} ${H+10}`} style={{marginBottom:14,display:'block',overflow:'visible'}}>
+                    <defs>
+                      <linearGradient id="baAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={ageCol} stopOpacity=".25"/>
+                        <stop offset="100%" stopColor={ageCol} stopOpacity="0"/>
+                      </linearGradient>
+                    </defs>
+                    <line x1="0" y1={H*0.25} x2={W} y2={H*0.25} stroke="rgba(255,255,255,.05)" strokeWidth="1"/>
+                    <line x1="0" y1={H*0.5} x2={W} y2={H*0.5} stroke="rgba(255,255,255,.05)" strokeWidth="1"/>
+                    <line x1="0" y1={H*0.75} x2={W} y2={H*0.75} stroke="rgba(255,255,255,.05)" strokeWidth="1"/>
+                    <polygon points={`0,${H} ${chartPts} ${W},${H}`} fill="url(#baAreaGrad)"/>
+                    <polyline points={chartPts} fill="none" stroke={ageCol} strokeWidth="2.5"
+                      strokeLinejoin="round" strokeLinecap="round"/>
+                    {hist.map((h,i)=>{
+                      const ages=hist.map(x=>x.ba);
+                      const mn=Math.max(10,Math.min(...ages)-5),mx2=Math.min(90,Math.max(...ages)+5),rng=mx2-mn||1;
+                      const cx=((i/(hist.length-1))*W).toFixed(1);
+                      const cy=(H-((h.ba-mn)/rng)*(H-12)-4).toFixed(1);
+                      const dc=h.ba<=35?'#3a9a62':h.ba<=50?'#c8a030':h.ba<=62?'#c07840':'#c05040';
+                      return <circle key={i} cx={cx} cy={cy} r="3.5" fill={dc} stroke="rgba(20,16,10,.8)" strokeWidth="1.5"/>;
+                    })}
+                  </svg>
+                  <div style={{fontSize:9,color:T.muted,letterSpacing:.8,marginBottom:6}}>GAME LOG</div>
+                  {[...hist].reverse().slice(0,10).map((h,i)=>{
+                    const dc=h.ba<=35?'#3a9a62':h.ba<=50?'#c8a030':h.ba<=62?'#c07840':'#c05040';
+                    return (
+                      <div key={i} style={{display:'flex',justifyContent:'space-between',alignItems:'center',
+                        padding:'7px 0',borderBottom:'1px solid rgba(255,255,255,.05)'}}>
+                        <span style={{fontSize:11,color:T.muted}}>Game {hist.length-i}</span>
+                        <span style={{fontSize:11,color:T.muted}}>{h.date}</span>
+                        <span style={{fontSize:15,color:dc,fontFamily:'Georgia,serif',fontWeight:'bold'}}>{h.ba}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ):(
+                <div style={{textAlign:'center',padding:'28px 0',color:T.muted,fontSize:13}}>
+                  Complete games to build your history.<br/>
+                  <span style={{fontSize:11,opacity:.6}}>Brain Age is recorded after each win.</span>
+                </div>
+              )}
+            </div>
+          )}
+          {tab==='about'&&(
+            <div style={{fontSize:13,color:'rgba(232,220,200,.8)',lineHeight:1.75}}>
+              <div style={{fontSize:14,color:T.gold,fontFamily:'Georgia,serif',marginBottom:10}}>What is Brain Age?</div>
+              <p style={{marginBottom:14}}>Brain Age estimates your cognitive processing ability as an age equivalent. A score of 40 means your speed and decision quality resemble an average 40-year-old — regardless of how old you actually are.</p>
+
+              <div style={{fontSize:13,color:T.gold,fontFamily:'Georgia,serif',marginBottom:8}}>The Formula</div>
+              <div style={{background:'rgba(255,255,255,.04)',borderRadius:8,padding:'11px 14px',marginBottom:14,
+                fontFamily:'monospace',fontSize:11,color:'rgba(180,210,170,.9)',lineHeight:2}}>
+                Speed Score = (8s − avg_time) ÷ 6.5 × 100<br/>
+                Accuracy Score = avg decision quality (%)<br/>
+                Performance = Speed×42% + Accuracy×58%<br/>
+                <span style={{color:T.gold}}>Brain Age = 22 + (1 − Performance/100) × 58</span>
+              </div>
+
+              <div style={{marginBottom:14}}>
+                <div style={{display:'flex',gap:10,marginBottom:10}}>
+                  <div style={{width:3,borderRadius:2,background:T.gold,flexShrink:0,alignSelf:'stretch'}}/>
+                  <div><span style={{color:T.gold}}>Processing Speed (42%)</span> — How quickly you recognise patterns and commit. Speed of information processing is the most consistently replicated marker of cognitive aging, declining ~0.4% per year after 25.</div>
+                </div>
+                <div style={{display:'flex',gap:10}}>
+                  <div style={{width:3,borderRadius:2,background:'#5ab870',flexShrink:0,alignSelf:'stretch'}}/>
+                  <div><span style={{color:'#5ab870'}}>Decision Quality (58%)</span> — Whether each move advances your optimal strategy. This stresses planning, working memory, and inhibitory control — the executive functions most sensitive to cognitive aging.</div>
+                </div>
+              </div>
+
+              <div style={{fontSize:13,color:T.gold,fontFamily:'Georgia,serif',marginBottom:8}}>Scientific Basis</div>
+
+              <div style={{background:'rgba(255,255,255,.04)',border:'1px solid rgba(200,160,48,.18)',
+                borderRadius:8,padding:'11px 14px',marginBottom:10}}>
+                <div style={{fontSize:11,color:T.gold,marginBottom:4,letterSpacing:.3}}>① Salthouse, T.A. (1996)</div>
+                <div style={{fontSize:12,fontStyle:'italic',color:'rgba(232,220,200,.9)',marginBottom:5}}>"The Processing-Speed Theory of Adult Age Differences in Cognition"</div>
+                <div style={{fontSize:11,color:T.muted,lineHeight:1.55}}>Psychological Review, 103(3), 403–428. The foundational paper establishing that processing speed is the primary mediator of all age-related cognitive decline — across memory, reasoning, and spatial ability.</div>
+              </div>
+
+              <div style={{background:'rgba(255,255,255,.04)',border:'1px solid rgba(90,184,112,.18)',
+                borderRadius:8,padding:'11px 14px',marginBottom:12}}>
+                <div style={{fontSize:11,color:'#5ab870',marginBottom:4,letterSpacing:.3}}>② Anguera, J.A. et al. (2013)</div>
+                <div style={{fontSize:12,fontStyle:'italic',color:'rgba(232,220,200,.9)',marginBottom:5}}>"Video game training enhances cognitive control in older adults"</div>
+                <div style={{fontSize:11,color:T.muted,lineHeight:1.55}}>Nature, 501, 97–101. Showed that game-based tasks combining speed + adaptive decision-making produce measurable, transferable improvements in attention and executive control — validating game metrics as sensitive cognitive probes.</div>
+              </div>
+
+              <div style={{fontSize:10,color:T.muted,lineHeight:1.6,borderTop:'1px solid rgba(255,255,255,.07)',paddingTop:12}}>
+                ⚠ Brain Age is a wellness indicator, not a clinical diagnostic. Scores vary with fatigue, stress, and mood. Watch your trend over weeks for meaningful signal.
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function BrainAgeChart({moveTimes,moveAccuracy,meditationSessions}){
+  // Build real-time rolling brain age — one data point per move (last 12)
+  const n=Math.min(moveTimes.length,moveAccuracy.length);
+  if(n<3){
+    return <div style={{fontSize:9,color:T.muted,fontStyle:'italic',paddingTop:2}}>Calibrating…</div>;
+  }
+  // Compute cumulative brain age at each move step
+  const series=[];
+  for(let i=2;i<n;i++){
+    const times=moveTimes.slice(0,i+1);
+    const accs=moveAccuracy.slice(0,i+1);
+    const avgSpd=times.reduce((a,b)=>a+b,0)/times.length;
+    const avgAcc=accs.reduce((a,b)=>a+b,0)/accs.length;
+    const spdScore=Math.max(0,Math.min(100,(8-avgSpd)/6.5*100));
+    const bonus=Math.min((meditationSessions||0)*2,8);
+    series.push(Math.max(22,Math.round(22+(100-(spdScore*0.42+avgAcc*0.58))/100*58)-bonus));
+  }
+  const sample=series.slice(-12);
+  const W=72,H=18;
+  const minV=Math.max(22,Math.min(...sample)-3);
+  const maxV=Math.min(80,Math.max(...sample)+3);
+  const rng=Math.max(maxV-minV,5);
+  // Invert Y: lower brain age (younger) plots higher on chart
+  const pts=sample.map((v,i)=>{
+    const x=(i/(sample.length-1||1))*W;
+    const y=((v-minV)/rng)*(H-4)+2; // low age = small y = top
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const cur=sample[sample.length-1];
+  const early=sample.slice(0,3).reduce((a,b)=>a+b,0)/3;
+  const recent=sample.slice(-3).reduce((a,b)=>a+b,0)/3;
+  const diff=recent-early;
+  const {label,color}=diff<-2?{label:'↓ Younger',color:'#5ab875'}:diff>2?{label:'↑ Older',color:'#c87070'}:{label:'→ Steady',color:'#8a7a68'};
+  const lastY=((cur-minV)/rng)*(H-4)+2;
+  const col=cur<=35?'#3a9a62':cur<=50?'#8ab4d8':cur<=62?'#c07840':'#c05040';
+  return (
+    <div style={{display:'flex',alignItems:'center',gap:6}}>
+      <svg width={W} height={H} style={{overflow:'visible',flexShrink:0,display:'block'}}>
+        <polyline points={pts} fill="none" stroke={col} strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round"/>
+        {sample.map((v,i)=>i===sample.length-1?<circle key={i} cx={(i/(sample.length-1||1))*W} cy={((v-minV)/rng)*(H-4)+2} r={2.5} fill={col}/>:null)}
+      </svg>
+      <span style={{fontSize:9,color,lineHeight:1.3,whiteSpace:'nowrap'}}>{label}</span>
+    </div>
+  );
+}
+
+function BrainAgeDisplay({birthYear,moveTimes,moveAccuracy,onClick,history}){
+  const curYr=new Date().getFullYear();
+  const actualAge=birthYear&&birthYear>1900?curYr-birthYear:null;
+  const hasData=moveTimes.length>=5&&moveAccuracy.length>=5;
+  const containerStyle={
+    flexShrink:0,paddingLeft:10,paddingRight:10,
+    borderRight:'1px solid rgba(255,255,255,.06)',
+    marginRight:8,textAlign:'center',minWidth:64,
+  };
+  if(!hasData){
+    return (
+      <div style={{...containerStyle,cursor:'pointer'}} onClick={onClick}>
+        <div style={{fontSize:15,color:'rgba(230,205,150,.9)',letterSpacing:1,textTransform:'uppercase',fontWeight:'700',marginBottom:3,whiteSpace:'nowrap'}}>Brain Age</div>
+        <div style={{fontSize:10,color:T.muted,fontStyle:'italic',lineHeight:1.4}}>Play more…</div>
+      </div>
+    );
+  }
+  const avgSpd=moveTimes.reduce((a,b)=>a+b,0)/moveTimes.length;
+  const avgAcc=moveAccuracy.reduce((a,b)=>a+b,0)/moveAccuracy.length;
+  // Speed score: 1.5s = 100, 8s = 0 (solitaire population range)
+  const spdScore=Math.max(0,Math.min(100,(8-avgSpd)/6.5*100));
+  // Combined performance score 0–100
+  const perf=spdScore*0.42+avgAcc*0.58;
+  // Absolute brain age: perf 100 → age 22, perf 0 → age 80
+  const brainAge=Math.round(22+(100-perf)/100*58);
+  // Relative to actual age
+  let relLabel='',relColor=T.muted;
+  if(actualAge){
+    const diff=brainAge-actualAge;
+    if(diff<=-8){relLabel=`${-diff}y younger`;relColor='#3a9a62';}
+    else if(diff<=-3){relLabel=`${-diff}y ↑`;relColor='#5ab870';}
+    else if(diff>=8){relLabel=`${diff}y older`;relColor='#c05040';}
+    else if(diff>=3){relLabel=`${diff}y ↑`;relColor='#c07050';}
+    else{relLabel='On target';relColor=T.gold;}
+  }
+  const ageCol=brainAge<=35?'#3a9a62':brainAge<=50?'#c8a030':brainAge<=62?'#c07840':'#c05040';
+  return (
+    <div style={{...containerStyle,cursor:'pointer'}} onClick={onClick} title="Tap to see Brain Age history">
+      <div style={{fontSize:9,color:T.muted,letterSpacing:.5,marginBottom:2,textTransform:'uppercase',whiteSpace:'nowrap'}}>Brain Age <span style={{fontSize:7,opacity:.5}}>▸</span></div>
+      <div style={{fontSize:26,color:ageCol,fontFamily:'Georgia,serif',lineHeight:1,marginBottom:2}}>{brainAge}</div>
+      {relLabel?(
+        <div style={{fontSize:8,color:relColor,whiteSpace:'nowrap'}}>{relLabel}</div>
+      ):(
+        <div style={{fontSize:8,color:T.muted}}>vs avg</div>
+      )}
+    </div>
+  );
+}
+
+function PerformanceModal({type,moveTimes,moveAccuracy,birthYear,onClose,brainAgeHistory,onBrainAge}){
+  const isSpeed=type==='speed';
+  const data=(isSpeed?moveTimes:moveAccuracy)||[];
+  const W=300,H=90;
+  const avg=data.length?Math.round(data.reduce((a,b)=>a+b,0)/data.length):0;
+  const best=data.length?(isSpeed?Math.min(...data):Math.max(...data)):0;
+  const worst=data.length?(isSpeed?Math.max(...data):Math.min(...data)):0;
+  const col=isSpeed?'#c8a030':(avg>=80?'#3a9a62':avg>=60?'#c8a030':'#c05040');
+  const pts=data.length>=2?(()=>{
+    const mn=Math.min(...data),mx=Math.max(...data),rng=Math.max(mx-mn,.1);
+    return data.map((v,i)=>`${((i/(data.length-1))*W).toFixed(1)},${(H-((v-mn)/rng)*(H-8)-4).toFixed(1)}`).join(' ');
+  })():null;
+  const recent=data.slice(-5),early=data.slice(0,5);
+  const ra=recent.reduce((a,b)=>a+b,0)/(recent.length||1);
+  const ea=early.reduce((a,b)=>a+b,0)/(early.length||1);
+  const diff=isSpeed?ea-ra:ra-ea;
+  const trend=diff>3?{t:'↑ Improving',c:'#3a9a62'}:diff<-3?{t:'↓ Declining',c:'#c05040'}:{t:'→ Steady',c:'#8a7a68'};
+  const fmt=v=>isSpeed?(v<10?v.toFixed(1)+'s':Math.round(v)+'s'):v+'%';
+  const areaPoints=pts?`0,${H} ${pts} ${W},${H}`:null;
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(6,5,3,.96)',backdropFilter:'blur(14px)',WebkitBackdropFilter:'blur(14px)',zIndex:9992,display:'flex',flexDirection:'column'}} onClick={onClose}>
+      <div style={{flex:1,overflowY:'auto',padding:'28px 20px 24px'}} onClick={e=>e.stopPropagation()}>
+        <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:20}}>
+          <div>
+            <div style={{fontSize:9,color:T.muted,letterSpacing:2,textTransform:'uppercase',marginBottom:4}}>{isSpeed?'Speed History':'Decision Accuracy'}</div>
+            <div style={{fontSize:13,color:T.gold,fontFamily:'Georgia,serif'}}>{data.length} moves this game</div>
+          </div>
+          <div style={{display:'flex',alignItems:'center',gap:10}}>
+            <BrainAgeDisplay birthYear={birthYear} moveTimes={moveTimes} moveAccuracy={moveAccuracy} history={brainAgeHistory||[]} onClick={onBrainAge}/>
+            <button onClick={onClose} style={{background:'rgba(255,255,255,.07)',border:'1px solid rgba(255,255,255,.13)',borderRadius:8,color:T.muted,fontSize:11,cursor:'pointer',padding:'7px 16px',fontFamily:'Georgia,serif'}}>Close</button>
+          </div>
+        </div>
+        {pts?(
+          <div style={{background:'rgba(0,0,0,.35)',borderRadius:12,padding:'12px 10px 6px',marginBottom:16,border:'1px solid rgba(255,255,255,.06)'}}>
+            <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none">
+              <defs>
+                <linearGradient id="pm_grad" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={col} stopOpacity=".28"/>
+                  <stop offset="100%" stopColor={col} stopOpacity="0"/>
+                </linearGradient>
+              </defs>
+              {areaPoints&&<polygon points={areaPoints} fill="url(#pm_grad)"/>}
+              <polyline points={pts} fill="none" stroke={col} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>
+              {data.map((v,i)=>{
+                const mn=Math.min(...data),mx=Math.max(...data),rng=Math.max(mx-mn,.1);
+                const x=(i/(data.length-1))*W,y=H-((v-mn)/rng)*(H-8)-4;
+                return i===data.length-1?<circle key={i} cx={x} cy={y} r={3} fill={col} vectorEffect="non-scaling-stroke"/>:null;
+              })}
+            </svg>
+            <div style={{display:'flex',justifyContent:'space-between',padding:'4px 2px 0'}}>
+              <span style={{fontSize:8,color:T.muted}}>Move 1</span>
+              <span style={{fontSize:8,color:T.muted}}>Move {data.length}</span>
+            </div>
+          </div>
+        ):(
+          <div style={{textAlign:'center',padding:'28px 0',color:T.muted,fontSize:11,fontStyle:'italic'}}>No data yet — make some moves first</div>
+        )}
+        {data.length>0&&(
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr 1fr',gap:8,marginBottom:18}}>
+            {[
+              {label:'Average',value:fmt(avg),c:col},
+              {label:isSpeed?'Fastest':'Best',value:fmt(best),c:'#3a9a62'},
+              {label:isSpeed?'Slowest':'Worst',value:fmt(worst),c:'#c05040'},
+              {label:'Trend',value:trend.t,c:trend.c},
+            ].map(({label,value,c})=>(
+              <div key={label} style={{background:'rgba(255,255,255,.04)',borderRadius:10,padding:'10px 6px',textAlign:'center',border:'1px solid rgba(255,255,255,.07)'}}>
+                <div style={{fontSize:8,color:T.muted,letterSpacing:.5,textTransform:'uppercase',marginBottom:5}}>{label}</div>
+                <div style={{fontSize:12,color:c,fontFamily:'Georgia,serif',lineHeight:1.2}}>{value}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        {data.length>0&&(
+          <div>
+            <div style={{fontSize:9,color:T.muted,letterSpacing:1.2,textTransform:'uppercase',marginBottom:8}}>Every Move</div>
+            <div style={{display:'flex',flexWrap:'wrap',gap:4}}>
+              {data.map((v,i)=>{
+                const c2=isSpeed?'#c8a030':(v>=80?'#3a9a62':v>=60?'#c8a030':'#c05040');
+                return (
+                  <div key={i} title={`Move ${i+1}: ${fmt(v)}`} style={{width:38,background:'rgba(255,255,255,.04)',borderRadius:6,padding:'4px 2px',textAlign:'center',border:`1px solid ${c2}28`}}>
+                    <div style={{fontSize:7,color:T.muted,marginBottom:1}}>#{i+1}</div>
+                    <div style={{fontSize:9,color:c2,fontFamily:'Georgia,serif'}}>{isSpeed?(v<10?v.toFixed(1):Math.round(v))+'s':v+'%'}</div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Game({playerName,birthYear,onRename}){
+  const [gs,setGs]=useState(()=>dealWinnableGame());
+  const [history,setHistory]=useState([]);
+  const [sel,setSel]=useState(null);
+  const [score,setScore]=useState(0);
+  const [moves,setMoves]=useState(0);
+  const [assist,setAssist]=useState(()=>{try{return parseInt(localStorage.getItem('sol_assist')||'1');}catch{return 1;}});
+  const [dragState,setDragState]=useState(null); // which cards are faded
+  const [dragViz,setDragViz]=useState(null);     // floating visual
+  const [streak,setStreak]=useState(()=>{try{return parseInt(localStorage.getItem('sol_streak')||'0')}catch{return 0}});
+  const [gamesWon,setGamesWon]=useState(()=>{try{return parseInt(localStorage.getItem('sol_won')||'0')}catch{return 0}});
+  const [gamesPlayed,setGamesPlayed]=useState(()=>{try{return parseInt(localStorage.getItem('sol_played')||'0')}catch{return 0}});
+  const [won,setWon]=useState(false);
+  const [breath,setBreath]=useState(false);
+  const [breathAuto,setBreathAuto]=useState(false); // true when auto-triggered
+  const [meditationSessions,setMeditationSessions]=useState(0); // completed this game
+  const [meditationToast,setMeditationToast]=useState(null); // {piece:bool, baBonus:N}
+  const lastBreathRef=useRef(Date.now()); // timestamp of last breath session shown
+  const [stats,setStats]=useState(false);
+  const [ritual,setRitual]=useState(()=>{try{const s=localStorage.getItem('sol_ritual');return s?JSON.parse(s):[true,true,true,true];}catch{return [true,true,true,true];}});
+  const [dealing,setDealing]=useState(false);
+  const [flyCard,setFlyCard]=useState(null);
+  const animActiveRef=useRef(false);
+  const [moveTimes,setMoveTimes]=useState([]);
+  const [moveAccuracy,setMoveAccuracy]=useState([]);
+  const [zenPieces,setZenPieces]=useState(()=>new Set());
+  const [zenPainting,setZenPainting]=useState(null);
+  const [paintingInfo,setPaintingInfo]=useState(null);
+  const [premium,setPremium]=useState(isPremiumUnlocked);
+  // Listen for unlock from native layer or sibling tab
+  useEffect(()=>{
+    const onMsg=()=>{ if(isPremiumUnlocked()){ setPremium(true); fetchARTICPainting(setZenPainting,setPaintingInfo); } };
+    window.addEventListener('sol_premium_unlocked',onMsg);
+    return ()=>window.removeEventListener('sol_premium_unlocked',onMsg);
+  },[]);
+  useEffect(()=>{fetchARTICPainting(setZenPainting,setPaintingInfo);},[]);
+  const zenRevealOrderRef=useRef(()=>shuffleArray(Array.from({length:ZEN_TOTAL},(_,i)=>i)));
+  // Materialise the order once on mount
+  if(typeof zenRevealOrderRef.current==='function') zenRevealOrderRef.current=zenRevealOrderRef.current();
+  const zenPiecesRef=useRef(zenPieces); useEffect(()=>{zenPiecesRef.current=zenPieces;},[zenPieces]);
+  const [showSettings,setShowSettings]=useState(false);
+  const [perfModal,setPerfModal]=useState(null);
+  const [confirmNew,setConfirmNew]=useState(false);
+  const [brainAgeModal,setBrainAgeModal]=useState(false);
+  const [brainAgeHistory,setBrainAgeHistory]=useState(()=>{
+    try{const s=localStorage.getItem('sol_ba_hist');return s?JSON.parse(s):[];}
+    catch{return [];}
+  });
+  const [snapBack,setSnapBack]=useState(null);
+  const [snappingId,setSnappingId]=useState(null);
+  const snappingIdRef=useRef(null);
+  const [hintCard,setHintCard]=useState(null);
+  const lastMoveTimeRef=useRef(Date.now());
+  const [sounds,setSounds]=useState(()=>{try{return parseInt(localStorage.getItem('sol_sounds')||'2')}catch{return 2}});
+  const [drawMode,setDrawMode]=useState(()=>{try{return parseInt(localStorage.getItem('sol_draw')||'1')}catch{return 1}});
+  const [reduceAnim,setReduceAnim]=useState(()=>{try{return localStorage.getItem('sol_ranim')==='1'}catch{return false}});
+  const [feltTexture,setFeltTexture]=useState(()=>{try{return localStorage.getItem('sol_felt')==='1';}catch{return false;}});
+  useEffect(()=>{ if(feltTexture) document.body.classList.add('felt-texture'); else document.body.classList.remove('felt-texture'); return()=>document.body.classList.remove('felt-texture'); },[feltTexture]);
+  function changeFeltTexture(v){ setFeltTexture(v); try{localStorage.setItem('sol_felt',v?'1':'0');}catch{} }
+  const [showTimeMoves,setShowTimeMoves]=useState(()=>{try{return localStorage.getItem('sol_showt')!=='0'}catch{return true}});
+  const soundsRef=useRef(sounds); useEffect(()=>{soundsRef.current=sounds;},[sounds]);
+  const drawModeRef=useRef(drawMode); useEffect(()=>{drawModeRef.current=drawMode;},[drawMode]);
+  // State for animations
+  const [revealedCards,setRevealedCards]=useState(()=>new Set());
+  const [scoreFloaters,setScoreFloaters]=useState([]);
+  const [winParticles,setWinParticles]=useState([]);
+  const floaterIdRef=useRef(0);
+
+  // Refs for use in stable event listeners
+  const gsRef=useRef(gs); useEffect(()=>{gsRef.current=gs},[gs]);
+  const assistRef=useRef(assist); useEffect(()=>{assistRef.current=assist},[assist]);
+  const selRef=useRef(sel); useEffect(()=>{selRef.current=sel},[sel]);
+  const wonRef=useRef(won); useEffect(()=>{wonRef.current=won},[won]);
+
+  // Auto-trigger breath break every 20-25 min of play
+  const breathRef=useRef(breath);
+  useEffect(()=>{breathRef.current=breath;},[breath]);
+  useEffect(()=>{
+    const MIN_GAP=20*60*1000; // 20 minutes
+    const MAX_GAP=25*60*1000; // up to 25 minutes
+    // Pick a random trigger window once
+    const triggerGap=MIN_GAP+Math.random()*(MAX_GAP-MIN_GAP);
+    const iv=setInterval(()=>{
+      if(breathRef.current) return; // already showing
+      if(wonRef.current) return;    // game won screen
+      const elapsed=Date.now()-lastBreathRef.current;
+      if(elapsed>=triggerGap){
+        setBreath(true); setBreathAuto(true);
+        lastBreathRef.current=Date.now();
+      }
+    },30000); // check every 30s
+    return()=>clearInterval(iv);
+  },[]);
+  // Mutable drag ref — no re-render on position update
+  const dragRef=useRef(null);
+
+  // Stable setters refs
+  const setGsRef=useRef(setGs);
+  const setHistoryRef=useRef(setHistory);
+  const setScoreRef=useRef(setScore);
+  const setMovesRef=useRef(setMoves);
+  const setSelRef=useRef(setSel);
+  const setWonRef=useRef(setWon);
+  const setGamesWonRef=useRef(setGamesWon);
+  const setGamesPlayedRef=useRef(setGamesPlayed);
+  const setStreakRef=useRef(setStreak);
+  const moveTimesRef=useRef(moveTimes); useEffect(()=>{moveTimesRef.current=moveTimes;},[moveTimes]);
+  const moveAccuracyRef=useRef(moveAccuracy); useEffect(()=>{moveAccuracyRef.current=moveAccuracy;},[moveAccuracy]);
+  const setMoveTimesRef=useRef(setMoveTimes);
+  const setMoveAccuracyRef=useRef(setMoveAccuracy);
+  const setZenPiecesRef=useRef(setZenPieces);
+  const setScoreFloatersRef=useRef(setScoreFloaters);
+  const setWinParticlesRef=useRef(setWinParticles);
+
+  const greeting=getGreeting(playerName);
+
+  // ── finishGame: win check after all animations settle ──
+  const finishGameRef=useRef(null);
+  finishGameRef.current=function finishGame(finalGs){
+    if(isWon(finalGs.foundations)){
+      const ns=streakVal+1,nw=gwVal+1,np=gpVal+1;
+      setStreakRef.current(ns); setGamesWonRef.current(nw); setGamesPlayedRef.current(np);
+      try{localStorage.setItem('sol_streak',ns);localStorage.setItem('sol_won',nw);localStorage.setItem('sol_played',np);}catch{}
+      setWonRef.current(true);
+      SoundEngine.win(soundsRef.current);
+      // Record brain age history on game win
+      try{
+        const mt=moveTimesRef.current,ma=moveAccuracyRef.current;
+        if(mt&&mt.length>=5&&ma&&ma.length>=5){
+          const sp=Math.max(0,Math.min(100,(8-(mt.reduce((a,b)=>a+b,0)/mt.length))/6.5*100));
+          const ac=ma.reduce((a,b)=>a+b,0)/ma.length;
+          const ba=Math.round(22+(100-(sp*0.42+ac*0.58))/100*58);
+          const entry={ba,date:new Date().toLocaleDateString('en',{month:'short',day:'numeric'}),ts:Date.now()};
+          setBrainAgeHistory(prev=>{
+            const next=[...prev,entry].slice(-30);
+            try{localStorage.setItem('sol_ba_hist',JSON.stringify(next));}catch{}
+            return next;
+          });
+        }
+      }catch{}
+      // Offer breath break if 20+ min have passed since last one
+      setTimeout(()=>{
+        if(Date.now()-lastBreathRef.current>=20*60*1000){
+          setBreath(true); setBreathAuto(true);
+          lastBreathRef.current=Date.now();
+        }
+      },3500); // delay so win screen appears first
+      // Cascade reveal remaining zen pieces
+      const order=zenRevealOrderRef.current;
+      const curPieces=zenPiecesRef.current;
+      const remaining=order.filter(pi=>!curPieces.has(pi));
+      remaining.forEach((pieceIdx,i)=>{
+        setTimeout(()=>{
+          setZenPiecesRef.current(prev=>{const n=new Set(prev);n.add(pieceIdx);return n;});
+        },400+i*80);
+      });
+      // Win celebration: rain of cards
+      const suits=['♠','♥','♦','♣'];
+      const vals=['A','2','3','4','5','6','7','8','9','10','J','Q','K'];
+      const particles=Array.from({length:28},(_,i)=>({
+        id:i, suit:suits[i%4], val:vals[i%13],
+        left:Math.random()*94+1, delay:Math.random()*2.2,
+        dur:1.5+Math.random()*1.4, rot:(Math.random()>.5?1:-1)*(200+Math.random()*540)+'deg',
+        red:i%4===1||i%4===2,
+      }));
+      setWinParticlesRef.current(particles);
+      setTimeout(()=>setWinParticlesRef.current([]),5500);
+    }
+  };
+
+  // ── animFly: animate a single card from src element to dest element, then run callback ──
+  const animFlyRef=useRef(null);
+  animFlyRef.current=function animFly(cardObj,srcEl,destEl,applyFn,doneCb){
+    if(!srcEl||!destEl){ applyFn(); setTimeout(doneCb,60); return; }
+    const fromRect=srcEl.getBoundingClientRect();
+    const destRect=destEl.getBoundingClientRect();
+    applyFn(); // apply state change so card disappears from board
+    setFlyCard({card:cardObj,fromRect,destRect,phase:'start'});
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      setFlyCard(prev=>prev?{...prev,phase:'fly'}:null);
+      setTimeout(()=>{ setFlyCard(null); doneCb(); },310);
+    }));
+  };
+
+  // ── animAutoMoves: animate auto-collect moves one by one ──
+  const animAutoRef=useRef(null);
+  animAutoRef.current=function animAuto(moves){
+    if(!moves||moves.length===0) return;
+    animActiveRef.current=true;
+    function step(idx){
+      if(idx>=moves.length){
+        animActiveRef.current=false;
+        finishGameRef.current(moves[moves.length-1].gsSnapshot);
+        return;
+      }
+      SoundEngine.foundation(soundsRef.current);
+      const mv=moves[idx];
+      const srcEl=mv.src==='w'
+        ?document.querySelector('[data-waste-top]')
+        :document.querySelector(`[data-card-id="${mv.card.id}"]`);
+      const destEl=document.querySelector(`[data-found="${mv.fi}"]`);
+      animFlyRef.current(
+        mv.card, srcEl, destEl,
+        ()=>{ setGsRef.current(mv.gsSnapshot); setScoreRef.current(s=>Math.max(0,s+10)); },
+        ()=>step(idx+1)
+      );
+    }
+    step(0);
+  };
+
+  // ── animMove: animate any single board→board card move ──
+  const animMoveRef=useRef(null);
+  animMoveRef.current=function animMove(cardObj,cardId,isWaste,destDataAttr,applyFn,afterFn){
+    const srcEl=isWaste
+      ?document.querySelector('[data-waste-top]')
+      :document.querySelector(`[data-card-id="${cardId}"]`);
+    const destEl=document.querySelector(destDataAttr);
+    if(!srcEl||!destEl){ applyFn(); afterFn&&afterFn(); return; }
+    const fromRect=srcEl.getBoundingClientRect();
+    // Land at the BOTTOM of the destination column (below the last card), not at the top
+    const colRect=destEl.getBoundingClientRect();
+    const existingCards=Array.from(destEl.querySelectorAll('[data-card-id]'));
+    let destRect;
+    if(existingCards.length>0){
+      // Find the card with the largest top (the visually lowest card in the stack)
+      const rects=existingCards.map(c=>c.getBoundingClientRect());
+      const bottomCard=rects.reduce((a,b)=>b.top>a.top?b:a);
+      destRect={top:bottomCard.top+F_OFF,left:colRect.left,width:colRect.width,height:CARD_H,right:colRect.right,bottom:colRect.bottom};
+    } else {
+      destRect=colRect; // empty column — land at top
+    }
+    applyFn();
+    setFlyCard({card:cardObj,fromRect,destRect,phase:'start'});
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      setFlyCard(prev=>prev?{...prev,phase:'fly'}:null);
+      setTimeout(()=>{ setFlyCard(null); afterFn&&afterFn(); },200);
+    }));
+  };
+
+  // ── commit (stable: only uses refs and stable setters) ──
+  const commitRef=useRef(null);
+  commitRef.current=function commit(newGs,delta=0,oldGs,skipAnim=false){
+    const prev=oldGs||gsRef.current;
+    setHistoryRef.current(h=>[...h.slice(-39),cloneGs(prev)]);
+    setGsRef.current(newGs);
+    setScoreRef.current(s=>Math.max(0,s+delta));
+    setMovesRef.current(m=>m+1);
+    setSelRef.current(null);
+    const _now=Date.now(),_el=_now-lastMoveTimeRef.current;
+    lastMoveTimeRef.current=_now;
+    if(_el>400&&_el<300000) setMoveTimesRef.current(arr=>[...arr.slice(-19),Math.round(_el/100)/10]);
+    if(delta>0){
+      const fid=++floaterIdRef.current;
+      setScoreFloatersRef.current(arr=>[...arr,{id:fid,text:`+${delta}`}]);
+      setTimeout(()=>setScoreFloatersRef.current(arr=>arr.filter(f=>f.id!==fid)),950);
+    }
+    if(skipAnim){ return; } // afterFn in animMove will handle win/auto-collect
+    const moves=getAutoMoves(newGs,assistRef.current);
+    if(moves.length>0){ animAutoRef.current(moves); }
+    else { finishGameRef.current(newGs); }
+  };
+  // Streak/gamesWon/gamesPlayed snapshot for win check (read in commit)
+  const [streakVal,setStreakVal]=useState(streak);
+  const [gwVal,setGwVal]=useState(gamesWon);
+  const [gpVal,setGpVal]=useState(gamesPlayed);
+  useEffect(()=>setStreakVal(streak),[streak]);
+  useEffect(()=>setGwVal(gamesWon),[gamesWon]);
+  useEffect(()=>setGpVal(gamesPlayed),[gamesPlayed]);
+
+  // ── performMove (pure: takes explicit inputs, uses commitRef) ──
+  function performMove(src,srcCi,srcIdx,target,currentGs){
+    const n=cloneGs(currentGs);
+    let cards=[],srcCol=null;
+    if(src==='waste') cards=[n.waste[n.waste.length-1]];
+    else if(src==='foundation') cards=[n.foundations[srcCi][n.foundations[srcCi].length-1]];
+    else{ srcCol=n.tableau[srcCi]; cards=srcCol.splice(srcIdx); }
+    let ok=false,delta=0;
+    if(target.type==='f'){
+      if(cards.length===1&&canToFoundation(cards[0],n.foundations[target.fi])){
+        n.foundations[target.fi].push(cards[0]);
+        ok=true; delta=10;
+      }
+    } else if(target.type==='t'){
+      if(canToTableau(cards[0],n.tableau[target.ci])){
+        n.tableau[target.ci].push(...cards);
+        ok=true; delta=5;
+      }
+    }
+    if(!ok){ if(srcCol) srcCol.push(...cards); return false; }
+    // Commit source removal
+    if(src==='waste') n.waste.pop();
+    else if(src==='foundation'){ n.foundations[srcCi].pop(); delta=-15; }
+    if(srcCol){ const col=n.tableau[srcCi]; if(col.length&&!col[col.length-1].faceUp){col[col.length-1].faceUp=true;delta+=5;} }
+    const acc=computeMoveAccuracy(currentGs,target.type==='f'?'foundation':'tableau',cards[0],target);
+    setMoveAccuracyRef.current(arr=>[...arr.slice(-19),acc]);
+    if(target.type==='f') SoundEngine.foundation(soundsRef.current);
+    else SoundEngine.place(soundsRef.current,cards.length);
+    const snapId=cards[cards.length-1].id;
+    snappingIdRef.current=snapId; setSnappingId(snapId);
+    setTimeout(()=>{ if(snappingIdRef.current===snapId){snappingIdRef.current=null;setSnappingId(null);} },220);
+    commitRef.current(n,delta,currentGs);
+    return true;
+  }
+
+  // ── Global mouse/touch listeners (set up once) ──
+  useEffect(()=>{
+    function xy(e){ const s=e.touches?e.touches[0]:e; return {x:s.clientX,y:s.clientY}; }
+    function xyEnd(e){ const s=e.changedTouches?e.changedTouches[0]:e; return {x:s.clientX,y:s.clientY}; }
+
+    function onMove(e){
+      const d=dragRef.current; if(!d) return;
+      const {x,y}=xy(e);
+      if(!d.isDragging){
+        if(Math.hypot(x-d.startX,y-d.startY)<5) return;
+        dragRef.current={...d,isDragging:true};
+        document.body.classList.add('dragging');
+        // highlight valid drop zones (add class via DOM for performance)
+        setDragState({src:d.src,ci:d.ci,idx:d.idx});
+      }
+      dragRef.current={...dragRef.current,x,y};
+      setDragViz(prev=>({...dragRef.current}));
+      e.preventDefault();
+    }
+
+    function onUp(e){
+      const d=dragRef.current; if(!d) return;
+      dragRef.current=null;
+      document.body.classList.remove('dragging');
+      setDragState(null); setDragViz(null);
+      // Remove drop highlight
+      document.querySelectorAll('.dropzone.over').forEach(el=>el.classList.remove('over'));
+
+      const {x,y}=xyEnd(e);
+      if(!d.isDragging){
+        // Was a click — defer to onClick handlers
+        return;
+      }
+      // Use the dropzone tracked via mouseover (avoids elementFromPoint returning the drag portal)
+      const overEl=d.overEl;
+      const cur=gsRef.current;
+      let moveOk=false;
+      if(overEl){
+        const col=overEl.closest('[data-tabcol]');
+        const found=overEl.closest('[data-found]');
+        if(col) moveOk=performMove(d.src,d.ci,d.idx,{type:'t',ci:parseInt(col.dataset.tabcol)},cur);
+        else if(found) moveOk=performMove(d.src,d.ci,d.idx,{type:'f',fi:parseInt(found.dataset.found)},cur);
+      }
+      if(!moveOk){
+        // Snap the card(s) back to origin
+        const snapId=Date.now();
+        setSnapBack({x:d.x,y:d.y,offX:d.offX,offY:d.offY,cardW:d.cardW,cards:d.cards,
+          toX:d.startLeft,toY:d.startTop,id:snapId});
+        setTimeout(()=>setSnapBack(sb=>sb&&sb.id===snapId?null:sb),380);
+      }
+    }
+
+    function onDragOverDOM(e){
+      const d=dragRef.current; if(!d||!d.isDragging) return;
+      const el=e.target.closest('.dropzone');
+      document.querySelectorAll('.dropzone.over').forEach(x=>x.classList.remove('over'));
+      if(el){ el.classList.add('over'); dragRef.current={...dragRef.current,overEl:el}; }
+      else{ dragRef.current={...dragRef.current,overEl:null}; }
+    }
+
+    window.addEventListener('mousemove',onMove,{passive:false});
+    window.addEventListener('mouseup',onUp);
+    window.addEventListener('touchmove',onMove,{passive:false});
+    window.addEventListener('touchend',onUp);
+    window.addEventListener('mouseover',onDragOverDOM);
+    return()=>{
+      window.removeEventListener('mousemove',onMove);
+      window.removeEventListener('mouseup',onUp);
+      window.removeEventListener('touchmove',onMove);
+      window.removeEventListener('touchend',onUp);
+      window.removeEventListener('mouseover',onDragOverDOM);
+    };
+  },[]);// eslint-disable-line
+
+  // ── startDrag: called on mousedown of a draggable card ──
+  function startDrag(e,src,ci,idx,cards,card){
+    if(e.button!==0) return;
+    e.preventDefault();
+    const rect=e.currentTarget.getBoundingClientRect();
+    dragRef.current={
+      src,ci,idx,cards,card,
+      cardW:rect.width,
+      offX:e.clientX-rect.left,
+      offY:e.clientY-rect.top,
+      startX:e.clientX, startY:e.clientY,
+      startLeft:rect.left, startTop:rect.top,
+      x:e.clientX, y:e.clientY,
+      isDragging:false,
+    };
+  }
+
+  // ── autoToFoundation (with animation) ──
+  function autoToFound(card,src,ci){
+    for(let fi=0;fi<4;fi++){
+      if(!canToFoundation(card,gs.foundations[fi])) continue;
+      const n=cloneGs(gs); let delta=10;
+      if(src==='waste') n.waste.pop();
+      else{ n.tableau[ci].pop(); const col=n.tableau[ci]; if(col.length&&!col[col.length-1].faceUp){col[col.length-1].faceUp=true;delta+=5;} }
+      n.foundations[fi].push(card);
+      // Animate card flying to foundation, then trigger auto-collect
+      const cardId=card.id;
+      const isWaste=src==='waste';
+      const destSel=`[data-found="${fi}"]`;
+      const curGs=gs;
+      SoundEngine.foundation(soundsRef.current); // sound on double-click to foundation
+      animMoveRef.current(card,cardId,isWaste,destSel,
+        ()=>commitRef.current(n,delta,curGs,true/*skipAnim*/),
+        ()=>{ const afterMoves=getAutoMoves(n,assistRef.current); if(afterMoves.length>0) animAutoRef.current(afterMoves); else finishGameRef.current(n); }
+      );
+      return true;
+    }
+    return false;
+  }
+
+  // ── smartMove: double-click moves card to its only valid destination ──
+  function smartMove(card,src,ci,idx){
+    // Try foundation first (only for top accessible card)
+    const isTopCard=src==='waste'||(src==='tableau'&&idx===gs.tableau[ci]?.length-1);
+    if(isTopCard&&autoToFound(card,src,ci)) return true;
+    // Try single valid tableau destination — works for BOTH waste and tableau (including stacks)
+    const movingCard=src==='waste'?card:gs.tableau[ci][idx];
+    const fromCi=src==='waste'?-1:ci;
+    const destCi=findBestTableauDest(movingCard,gs.tableau,fromCi,idx);
+    if(destCi>=0){
+      const n=cloneGs(gs);
+      let delta=5;
+      if(src==='waste'){
+        n.waste.pop();
+        n.tableau[destCi].push(card);
+      } else {
+        const moved=n.tableau[ci].splice(idx);
+        n.tableau[destCi].push(...moved);
+        const remaining=n.tableau[ci];
+        if(remaining.length&&!remaining[remaining.length-1].faceUp){remaining[remaining.length-1].faceUp=true;delta+=5;}
+      }
+      const isWaste=src==='waste';
+      const destSel=`[data-tabcol="${destCi}"]`;
+      const curGs=gs;
+      SoundEngine.place(soundsRef.current, src==='waste'?1:gs.tableau[ci].length-idx); // sound on double-click to tableau
+      animMoveRef.current(movingCard,movingCard.id,isWaste,destSel,
+        ()=>commitRef.current(n,delta,curGs,true),
+        ()=>{ const afterMoves=getAutoMoves(n,assistRef.current); if(afterMoves.length>0) animAutoRef.current(afterMoves); else finishGameRef.current(n); }
+      );
+      return true;
+    }
+    return false;
+  }
+
+  // ── handleCard ──
+  function handleCard(action,ci,idx,card,e){
+    if(action==='flip'){
+      const fCard=gs.tableau[ci][idx];
+      setRevealedCards(s=>{const ns=new Set(s);ns.add(fCard.id);return ns;});
+      setMoveAccuracy(arr=>[...arr.slice(-19),86]);
+      SoundEngine.flip(soundsRef.current);
+      const n=cloneGs(gs); n.tableau[ci][idx].faceUp=true; commitRef.current(n,5,gs);
+      setTimeout(()=>setRevealedCards(s=>{const ns=new Set(s);ns.delete(fCard.id);return ns;}),430);
+      return;
+    }
+    if(action==='dbl'){ smartMove(card,'tableau',ci,idx); return; }
+    if(action==='down'){
+      const cards=gs.tableau[ci].slice(idx);
+      startDrag(e,'tableau',ci,idx,cards,cards[0]);
+      return;
+    }
+    // tap
+    if(sel){
+      if(sel.src==='tableau'&&sel.ci===ci&&sel.idx===idx){setSel(null);return;}
+      if(!performMove(sel.src,sel.ci,sel.idx,{type:'t',ci},gs)){
+        if(card.faceUp) setSel({src:'tableau',ci,idx});
+      }
+      return;
+    }
+    if(card.faceUp) setSel({src:'tableau',ci,idx});
+  }
+
+  function handleEmpty(ci){ if(sel) performMove(sel.src,sel.ci,sel.idx,{type:'t',ci},gs); }
+
+  function handleWaste(card,isDbl=false){
+    if(isDbl){smartMove(card,'waste',-1,gs.waste.length-1);return;}
+    if(sel){
+      if(sel.src==='waste'){setSel(null);return;}
+      setSel({src:'waste',ci:-1,idx:gs.waste.length-1}); return;
+    }
+    setSel({src:'waste',ci:-1,idx:gs.waste.length-1});
+  }
+
+  function handleWasteDown(e,card){
+    startDrag(e,'waste',-1,-1,[card],card);
+  }
+  function handleFoundDown(e,fi,card){
+    e.stopPropagation();
+    startDrag(e,'foundation',fi,gs.foundations[fi].length-1,[card],card);
+  }
+
+  function handleFound(fi){
+    const foundTop=gs.foundations[fi];
+    const topCard=foundTop[foundTop.length-1];
+    if(sel){
+      // Try moving selection onto this foundation
+      if(performMove(sel.src,sel.ci,sel.idx,{type:'f',fi},gs)){ setSel(null); return; }
+      // If failed and tapping own selection, deselect
+      if(sel.src==='foundation'&&sel.ci===fi){ setSel(null); return; }
+      // If failed and there's a card here, select it instead
+      if(topCard){ setSel({src:'foundation',ci:fi,idx:foundTop.length-1}); return; }
+      setSel(null); return;
+    }
+    // No selection — tap selects foundation top card
+    if(topCard) setSel({src:'foundation',ci:fi,idx:foundTop.length-1});
+  }
+  function handleFoundDrop(fi){ /* handled by mouseup */ }
+  function handleColDrop(ci){ /* handled by mouseup */ }
+
+  function handleStock(){
+    const n=cloneGs(gs);
+    if(!n.stock.length){
+      n.stock=[...n.waste].reverse().map(c=>({...c,faceUp:false})); n.waste=[];
+      setMoveAccuracy(arr=>[...arr.slice(-19),25]);
+      SoundEngine.recycle(soundsRef.current);
+      commitRef.current(n,-50,gs);
+    } else {
+      const count=drawModeRef.current===3?Math.min(3,n.stock.length):1;
+      for(let i=0;i<count;i++){ const c=n.stock.pop(); c.faceUp=true; n.waste.push(c); }
+      const drawAcc=computeMoveAccuracy(gs,'draw',null,null);
+      setMoveAccuracy(arr=>[...arr.slice(-19),drawAcc]);
+      SoundEngine.draw(soundsRef.current);
+      commitRef.current(n,0,gs);
+    }
+  }
+
+  function handleUndo(){
+    if(!history.length) return;
+    SoundEngine.undo(soundsRef.current);
+    setGs(history[history.length-1]); setHistory(h=>h.slice(0,-1)); setSel(null);
+    setScore(s=>Math.max(0,s-10)); setMoves(m=>m+1);
+  }
+
+  function handleNewGameBtn(){
+    if(moves<3||won) newGame();
+    else setConfirmNew(true);
+  }
+
+  function newGame(){
+    setDealing(true);
+    setTimeout(()=>{
+      setGs(dealWinnableGame()); setHistory([]); setSel(null); setScore(0); setMoves(0); setWon(false); setMoveTimes([]); setMoveAccuracy([]); setZenPieces(new Set()); setZenPainting(null); setPaintingInfo(null); fetchARTICPainting(setZenPainting,setPaintingInfo); zenRevealOrderRef.current=shuffleArray(Array.from({length:ZEN_TOTAL},(_,i)=>i));
+      const np=gamesPlayed+1; setGamesPlayed(np);
+      try{localStorage.setItem('sol_played',np);}catch{}
+      setDealing(false);
+    },20);
+  }
+
+  function changeAssist(lvl){
+    setAssist(lvl);
+    assistRef.current=lvl;
+    try{localStorage.setItem('sol_assist',String(lvl));}catch{}
+    const moves=getAutoMoves(gs,lvl);
+    if(moves.length>0) animAutoRef.current(moves);
+  }
+  function changeSounds(v){ setSounds(v); soundsRef.current=v; try{localStorage.setItem('sol_sounds',v);}catch{} }
+
+  function handlePurchase(){
+    // In production this triggers StoreKit via WKWebView bridge:
+    //   window.webkit.messageHandlers.iap.postMessage({productId:'com.yourapp.premium'})
+    // The native layer then calls window.premiumUnlocked() on success.
+    // For web demo / TestFlight sandbox: just unlock directly.
+    if(window.webkit?.messageHandlers?.iap){
+      window.webkit.messageHandlers.iap.postMessage({productId:'com.yourapp.gallery'});
+    } else {
+      // Demo / browser fallback
+      setPremiumUnlocked();
+      setPremium(true);
+      fetchARTICPainting(setZenPainting,setPaintingInfo);
+    }
+  }
+
+  function handleMeditationComplete(){
+    const sessions=meditationSessions+1;
+    setMeditationSessions(sessions);
+    // Bonus 1: reveal one extra zen puzzle piece
+    let gotPiece=false;
+    setZenPieces(prev=>{
+      if(prev.size>=ZEN_TOTAL) return prev;
+      const order=zenRevealOrderRef.current;
+      const next=order.find(i=>!prev.has(i));
+      if(next===undefined) return prev;
+      gotPiece=true;
+      return new Set([...prev,next]);
+    });
+    // Bonus 2: brain age discount — 2 years per session, max 8
+    const baBonus=Math.min(sessions*2,8);
+    // Show toast
+    setMeditationToast({baBonus, piece:true});
+    setTimeout(()=>setMeditationToast(null),3500);
+  }
+  // Zen reveal: log curve so early foundation cards reveal puzzle faster (incentivises play)
+  // Formula: y=log(1+x*(e-1)) maps x∈[0,1]→y∈[0,1] with fast early gain, slow late tail
+  const foundTotal=gs.foundations.reduce((s,f)=>s+f.length,0);
+  useEffect(()=>{
+    if(won) return;
+    const x=foundTotal/52;
+    const y=Math.log(1+x*(Math.E-1)); // natural log curve, 0→0, 1→1
+    const target=Math.min(ZEN_TOTAL,Math.floor(y*ZEN_TOTAL));
+    setZenPiecesRef.current(prev=>{
+      if(prev.size>=target) return prev;
+      const order=zenRevealOrderRef.current;
+      const next=new Set(prev);
+      while(next.size<target) next.add(order[next.size]);
+      return next;
+    });
+  },[foundTotal,won]);
+  function changeDrawMode(v){ setDrawMode(v); drawModeRef.current=v; try{localStorage.setItem('sol_draw',v);}catch{} }
+  function changeReduceAnim(v){ setReduceAnim(v); try{localStorage.setItem('sol_ranim',v?'1':'0');}catch{} }
+  function changeShowTimeMoves(v){ setShowTimeMoves(v); try{localStorage.setItem('sol_showt',v?'1':'0');}catch{} }
+
+  function handleHint(){
+    const h=findHint(gs);
+    if(!h){ setHintCard({type:'none'}); setTimeout(()=>setHintCard(null),1500); return; }
+    setHintCard(h);
+    setTimeout(()=>setHintCard(null),2000);
+    const srcSel=h.type==='waste-found'||h.type==='waste-tab'?'[data-waste-top]'
+      :h.card?`[data-card-id="${h.card.id}"]`:null;
+    if(srcSel){ const el=document.querySelector(srcSel); if(el){ el.style.transition='box-shadow .15s'; el.style.boxShadow='0 0 0 3px #e8c868,0 0 22px rgba(232,200,104,.65)'; setTimeout(()=>{el.style.boxShadow='';el.style.transition='';},1800); } }
+    if(h.type==='draw'||h.type==='none') return;
+    const destSel=(h.type==='tab-found'||h.type==='waste-found')?`[data-found="${h.fi}"]`:`[data-tabcol="${h.toCi}"]`;
+    const destEl=document.querySelector(destSel);
+    if(destEl){ destEl.classList.add('over'); setTimeout(()=>destEl.classList.remove('over'),1800); }
+  }
+
+  const assistLabels=['Manual','Auto Aces','Auto All'];
+
+  return (
+    <div style={{flex:1,display:'flex',flexDirection:'column',background:T.bg}}>
+      <DragLayer dv={dragViz}/>
+      {snapBack&&<SnapLayer sb={snapBack}/>}
+      <FlyingCard fc={flyCard}/>
+
+      {/* HEADER */}
+      <div style={{background:T.bgDark,padding:'13px 16px 11px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:`1px solid rgba(255,255,255,.05)`,flexShrink:0}}>
+        <div style={{fontSize:16,color:T.text}}>{greeting}</div>
+        <div style={{display:'flex',alignItems:'center',gap:5,fontSize:13,color:T.gold}}>
+          <span>🔥</span><span>Streak: {streak} {streak===1?'Day':'Days'}</span>
+        </div>
+      </div>
+
+      {/* BODY */}
+      <div style={{display:'flex',flex:1,overflow:'hidden'}}>
+
+        {/* GAME BOARD */}
+        <div style={{flex:1,minWidth:0,padding:'10px 7px 8px',overflowY:'auto',minHeight:388}}>
+          <div style={{display:'flex',gap:5,marginBottom:10,alignItems:'flex-start'}}>
+            <StockWaste stock={gs.stock} waste={gs.waste} onStock={handleStock} onWaste={handleWaste}
+              wasteSelected={sel?.src==='waste'} onWasteDown={handleWasteDown}/>
+            <div style={{flex:1}}/>
+            {gs.foundations.map((f,fi)=>(
+              <FoundationPile key={fi} cards={f} hint={FOUND_HINTS[fi]} fi={fi}
+                selected={sel?.src==='foundation'&&sel.ci===fi}
+                onTap={handleFound} onDrop={handleFoundDrop} onFoundDown={handleFoundDown}/>
+            ))}
+          </div>
+          <div style={{display:'flex',gap:5}}>
+            {gs.tableau.map((col,ci)=>(
+              <TableauColumn key={ci} cards={col} ci={ci} selected={sel} dragState={dragState}
+                onCard={handleCard} onEmpty={handleEmpty} onColDrop={handleColDrop} revealedCards={revealedCards} snappingId={snappingId}/>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* RITUAL SUMMARY */}
+      <div className="lg" style={{background:'rgba(30,28,18,.72)',flexShrink:0,borderTop:'1px solid rgba(255,255,255,.13)',padding:'5px 10px 4px',boxShadow:'inset 0 1px 0 rgba(255,255,255,.07)'}}>
+        <div style={{display:'flex',gap:8,alignItems:'stretch'}}>
+          {/* LEFT: Painting image — wider */}
+          <div style={{width:'52%',flexShrink:0}}>
+            <RewardCard gamesWon={gamesWon} zenPieces={zenPieces} paintingUrl={zenPainting} paintingInfo={paintingInfo} fillHeight premium={premium} onPurchase={handlePurchase}/>
+          </div>
+          {/* RIGHT: Stats stacked vertically — compact */}
+          <div style={{flex:1,display:'flex',flexDirection:'column',justifyContent:'space-between',minWidth:0,gap:2}}>
+            <div onClick={()=>setPerfModal('speed')} className="lg-btn" style={{cursor:'pointer',borderRadius:6,padding:'2px 3px',transition:'background .15s'}}>
+              <div style={{fontSize:11,color:'rgba(230,205,150,.9)',letterSpacing:.7,textTransform:'uppercase',fontWeight:'700',marginBottom:1}}>Speed <span style={{fontSize:8,opacity:.45}}>▸</span></div>
+              <SpeedChart times={moveTimes}/>
+            </div>
+            <div style={{borderTop:'1px solid rgba(255,255,255,.06)'}}/>
+            <div onClick={()=>setPerfModal('accuracy')} className="lg-btn" style={{cursor:'pointer',borderRadius:6,padding:'2px 3px',transition:'background .15s'}}>
+              <div style={{fontSize:11,color:'rgba(230,205,150,.9)',letterSpacing:.7,textTransform:'uppercase',fontWeight:'700',marginBottom:1}}>Accuracy <span style={{fontSize:8,opacity:.45}}>▸</span></div>
+              <AccuracyChart scores={moveAccuracy}/>
+            </div>
+            <div style={{borderTop:'1px solid rgba(255,255,255,.06)'}}/>
+            <div style={{display:'flex',gap:4,alignItems:'flex-start'}}>
+              <div onClick={()=>setBrainAgeModal(true)} className="lg-btn" style={{flex:1,cursor:'pointer',borderRadius:6,padding:'2px 3px',transition:'background .15s'}}>
+                <div style={{fontSize:11,color:'rgba(230,205,150,.9)',letterSpacing:.7,textTransform:'uppercase',fontWeight:'700',marginBottom:1}}>Brain Age <span style={{fontSize:8,opacity:.45}}>▸</span></div>
+                <BrainAgeChart moveTimes={moveTimes} moveAccuracy={moveAccuracy} meditationSessions={meditationSessions}/>
+              </div>
+              <div style={{textAlign:'right',borderLeft:'1px solid rgba(255,255,255,.06)',paddingLeft:6,flexShrink:0}}>
+                <div style={{fontSize:11,color:'rgba(230,205,150,.9)',letterSpacing:.7,textTransform:'uppercase',fontWeight:'700',marginBottom:1}}>Score</div>
+                <div style={{fontSize:20,color:T.gold,lineHeight:1,fontWeight:'bold'}}>{score}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        {hintCard?.type==='none'&&<div style={{fontSize:10,color:'#8a7a68',textAlign:'center',paddingTop:4,paddingBottom:2}}>No obvious move — try drawing from stock</div>}
+        {hintCard?.type==='draw'&&<div style={{fontSize:10,color:'#a0c4e8',textAlign:'center',paddingTop:4,paddingBottom:2}}>Hint: Draw a card from the stock pile</div>}
+      </div>
+
+      {/* ACTION BAR */}
+      <div className="lg" style={{background:'rgba(14,12,8,.8)',flexShrink:0,borderTop:'1px solid rgba(255,255,255,.10)',padding:'8px 9px',display:'flex',gap:5,boxShadow:'inset 0 1px 0 rgba(255,255,255,.06)'}}>
+        <button onClick={handleNewGameBtn} disabled={dealing} className="btn" style={{flex:1,padding:'11px 3px',background:T.btn,border:`1px solid ${T.btnBord}`,borderRadius:8,color:dealing?T.muted:T.text,fontSize:16,fontFamily:'Georgia,serif',cursor:dealing?'default':'pointer',fontWeight:'600'}}>{dealing?'…':'New Game'}</button>
+        <button onClick={handleUndo} disabled={!history.length} className="btn" style={{flex:1,padding:'11px 3px',background:T.btn,border:`1px solid ${T.btnBord}`,borderRadius:8,color:history.length?T.text:T.muted,fontSize:16,fontFamily:'Georgia,serif',cursor:history.length?'pointer':'default',fontWeight:'600'}}>Undo</button>
+        <button onClick={handleHint} className="btn" style={{flex:1,padding:'11px 3px',background:'rgba(30,50,80,.95)',border:'1px solid rgba(100,150,210,.3)',borderRadius:8,color:'#a0c4e8',fontSize:16,fontFamily:'Georgia,serif',cursor:'pointer',fontWeight:'600'}}>Hint</button>
+        <button onClick={()=>setBreath(true)} className="btn" style={{flex:1,padding:'7px 3px',background:T.green,border:`1px solid rgba(58,122,82,.35)`,borderRadius:8,color:'#a8d8b8',fontSize:12,fontFamily:'Georgia,serif',cursor:'pointer',lineHeight:1.4,fontWeight:'600'}}>🌿<br/>Meditate</button>
+        <button onClick={()=>setShowSettings(true)} className="btn" style={{padding:'9px 9px',background:T.btn,border:`1px solid ${T.btnBord}`,borderRadius:8,color:T.muted,fontSize:14,cursor:'pointer'}}>⚙️</button>
+      </div>
+
+      {dealing&&<div style={{position:'fixed',inset:0,background:'rgba(5,8,5,.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:150}}><div style={{color:T.gold,fontSize:16,fontFamily:'Georgia,serif'}}>Finding a winnable deal…</div></div>}
+      {/* Score floaters */}
+      {scoreFloaters.map(f=>ReactDOM.createPortal(
+        <div key={f.id} style={{position:'fixed',right:18,bottom:170,fontSize:20,fontWeight:'bold',color:'#e8c868',pointerEvents:'none',zIndex:9996,animation:'floatScore .95s ease-out forwards',textShadow:'0 2px 8px rgba(0,0,0,.9)'}}>{f.text}</div>,
+        document.body
+      ))}
+      {/* Win rain particles */}
+      {winParticles.map(p=>ReactDOM.createPortal(
+        <div key={p.id} style={{position:'fixed',left:`${p.left}%`,top:-60,width:36,height:52,background:p.red?'#fff0f0':'#f0f4ff',border:`1.5px solid ${p.red?'#c87070':'#7090c0'}`,borderRadius:6,display:'flex',alignItems:'center',justifyContent:'center',fontSize:13,fontWeight:'bold',color:p.red?'#b52020':'#182840',pointerEvents:'none',zIndex:9995,'--rot':p.rot,animation:`winRain ${p.dur}s ${p.delay}s ease-in both`,boxShadow:'0 4px 12px rgba(0,0,0,.4)'}}>{p.val}{p.suit}</div>,
+        document.body
+      ))}
+      {perfModal&&<PerformanceModal type={perfModal} moveTimes={moveTimes} moveAccuracy={moveAccuracy} birthYear={birthYear} onClose={()=>setPerfModal(null)} brainAgeHistory={brainAgeHistory} onBrainAge={()=>{setPerfModal(null);setBrainAgeModal(true);}}/> }
+      {won&&<WinScreen playerName={playerName} score={score} streak={streak} onNewGame={newGame}/> }
+      {confirmNew&&<ConfirmModal onConfirm={()=>{setConfirmNew(false);newGame();}} onCancel={()=>setConfirmNew(false)}/>}
+      {brainAgeModal&&<BrainAgeModal birthYear={birthYear} moveTimes={moveTimes} moveAccuracy={moveAccuracy} history={brainAgeHistory} onClose={()=>setBrainAgeModal(false)}/>}
+      {meditationToast&&(
+        <div style={{position:'fixed',bottom:120,left:'50%',transform:'translateX(-50%)',zIndex:300,
+          background:'rgba(40,80,55,.97)',border:'1px solid rgba(72,200,140,.4)',borderRadius:14,
+          padding:'14px 22px',textAlign:'center',boxShadow:'0 12px 40px rgba(0,0,0,.7)',
+          animation:'fadeIn .3s ease',minWidth:220}}>
+          <div style={{fontSize:20,marginBottom:6}}>🧘</div>
+          <div style={{fontSize:13,color:'#a8ddb8',fontFamily:'Georgia,serif',marginBottom:4}}>Meditation complete!</div>
+          <div style={{fontSize:11,color:'rgba(160,220,180,.75)',lineHeight:1.6}}>
+            +1 puzzle piece revealed<br/>
+            🧠 Brain Age −{meditationToast.baBonus}y this session
+          </div>
+        </div>
+      )}
+      {breath&&<BreathPause autoTriggered={breathAuto} onClose={()=>{setBreath(false);setBreathAuto(false);lastBreathRef.current=Date.now();}} onComplete={handleMeditationComplete}/>}
+      {stats&&<StatsOverlay score={score} moves={moves} streak={streak} gamesWon={gamesWon} gamesPlayed={gamesPlayed} assist={assist} onClose={()=>setStats(false)}/>}
+      {showSettings&&<SettingsOverlay playerName={playerName} onRename={onRename} onClose={()=>setShowSettings(false)} sounds={sounds} onSounds={changeSounds} drawMode={drawMode} onDrawMode={changeDrawMode} assist={assist} onAssist={changeAssist} reduceAnim={reduceAnim} onReduceAnim={changeReduceAnim} showTimeMoves={showTimeMoves} onShowTimeMoves={changeShowTimeMoves} gamesWon={gamesWon} gamesPlayed={gamesPlayed} ritual={ritual} onRitual={i=>setRitual(r=>{const n=r.map((v,j)=>j===i?!v:v);try{localStorage.setItem('sol_ritual',JSON.stringify(n));}catch{}return n;})} feltTexture={feltTexture} onFeltTexture={changeFeltTexture} onStats={()=>{setShowSettings(false);setStats(true);}}/>}
+    </div>
+  );
+}
+
+function App(){
+  const [playerName,setPlayerName]=useState(()=>{try{return localStorage.getItem('sol_name')||'';}catch{return '';}});
+  const [birthYear,setBirthYear]=useState(()=>{try{return parseInt(localStorage.getItem('sol_byr')||'0');}catch{return 0;}});
+  function handleStart(name,yr){
+    try{localStorage.setItem('sol_name',name);}catch{}
+    if(yr){try{localStorage.setItem('sol_byr',String(yr));}catch{}}
+    setPlayerName(name); setBirthYear(yr||0);
+  }
+  function handleRename(name){ try{localStorage.setItem('sol_name',name);}catch{} setPlayerName(name); }
+  return (
+    <div style={{display:'flex',flexDirection:'column',minHeight:'100vh'}}>
+      {playerName?<Game playerName={playerName} birthYear={birthYear} onRename={handleRename}/>:<NameSetup onStart={handleStart}/>}
+    </div>
+  );
+}
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+
+<script>
+  // ── Register PWA service worker ──────────────────────────────────────
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js')
+        .then(reg => console.log('[SW] registered', reg.scope))
+        .catch(err => console.warn('[SW] registration failed', err));
+    });
+  }
+</script>
+</body>
+</html>

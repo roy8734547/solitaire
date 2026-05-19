@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2a2818"/>
+      <stop offset="100%" style="stop-color:#111009"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#f0d060"/>
+      <stop offset="100%" style="stop-color:#c8a030"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <!-- Felt texture hint -->
+  <rect x="32" y="32" width="448" height="448" rx="72" fill="none" stroke="rgba(200,160,48,.15)" stroke-width="3"/>
+  <!-- Card shape -->
+  <rect x="80" y="56" width="352" height="400" rx="28" fill="#1e2818" stroke="url(#gold)" stroke-width="6"/>
+  <!-- Spade body -->
+  <path d="M256 130 C230 155 160 195 160 250 C160 278 180 295 205 288 C195 312 188 336 168 352 L344 352 C324 336 317 312 307 288 C332 295 352 278 352 250 C352 195 282 155 256 130Z" fill="url(#gold)"/>
+  <!-- Top-left A -->
+  <text x="106" y="152" font-family="Georgia,serif" font-size="64" font-weight="bold" fill="url(#gold)">A</text>
+  <text x="112" y="196" font-family="serif" font-size="32" fill="url(#gold)">♠</text>
+  <!-- Bottom-right A (flipped) -->
+  <g transform="rotate(180 256 360)">
+    <text x="106" y="152" font-family="Georgia,serif" font-size="64" font-weight="bold" fill="url(#gold)">A</text>
+    <text x="112" y="196" font-family="serif" font-size="32" fill="url(#gold)">♠</text>
+  </g>
+</svg>
