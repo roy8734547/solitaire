@@ -1,6 +1,6 @@
 // Mindful Solitaire — Service Worker
 // Cache version: bump this string any time you deploy an update
-const CACHE = 'sol-v1';
+const CACHE = 'sol-v2';
 
 // Resources to cache on install (app shell)
 const PRECACHE = [
