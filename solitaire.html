@@ -63,7 +63,7 @@
     }
     @keyframes zenRakeDrift { 0%{transform:translateX(0px)} 100%{transform:translateX(38px)} }
     @keyframes snapBounce { 0%{opacity:1;transform:scale(1.05)} 80%{opacity:.7;transform:scale(.98)} 100%{opacity:0;transform:scale(.95)} }
-    @keyframes snapPlace { 0%{transform:translateY(-6px) scale(1.06);opacity:.88} 65%{transform:translateY(1px) scale(.99)} 100%{transform:none;opacity:1} }
+    @keyframes snapPlace { 0%{transform:translateY(-5px);opacity:.55} 65%{transform:translateY(1px);opacity:1} 100%{transform:none;opacity:1} }
     .felt-texture #root { background-image:repeating-linear-gradient(45deg,rgba(0,0,0,.04) 0px,rgba(0,0,0,.04) 1px,transparent 1px,transparent 6px),repeating-linear-gradient(-45deg,rgba(0,0,0,.04) 0px,rgba(0,0,0,.04) 1px,transparent 1px,transparent 6px) !important; }
     @keyframes zenLeafFloat {
       0%,100%{transform:translate(0,0) rotate(0deg)}
@@ -292,9 +292,9 @@ function findBestTableauDest(card,tableau,fromCi,srcIdx){
 function getGreeting(name){ const h=new Date().getHours(); const t=h<12?'morning':h<17?'afternoon':'evening'; return `Good ${t}, ${name}.`; }
 
 // ── Card components ───────────────────────────────────────
-function CardBack({onClick,topPx,onMouseDown}){
+function CardBack({onClick,topPx,onMouseDown,onTouchStart}){
   return (
-    <div onMouseDown={onMouseDown} onClick={onClick} style={{width:'100%',height:CARD_H,background:`linear-gradient(145deg,${T.cardBack1},${T.cardBack2})`,border:`1.5px solid ${T.cardBackBord}`,borderRadius:8,position:'absolute',top:topPx,cursor:onClick?'pointer':'default',boxShadow:'0 2px 8px rgba(0,0,0,.55)',overflow:'hidden'}}>
+    <div onMouseDown={onMouseDown} onTouchStart={onTouchStart} onClick={onClick} style={{width:'100%',height:CARD_H,background:`linear-gradient(145deg,${T.cardBack1},${T.cardBack2})`,border:`1.5px solid ${T.cardBackBord}`,borderRadius:8,position:'absolute',top:topPx,cursor:onClick?'pointer':'default',boxShadow:'0 2px 8px rgba(0,0,0,.55)',overflow:'hidden'}}>
       <div style={{position:'absolute',inset:5,border:'1px solid rgba(255,255,255,.10)',borderRadius:4,backgroundImage:'repeating-linear-gradient(45deg,rgba(255,255,255,.025) 0,rgba(255,255,255,.025) 1px,transparent 0,transparent 50%)',backgroundSize:'10px 10px'}}/>
       <div style={{position:'absolute',inset:0,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18,color:'rgba(255,255,255,.08)',userSelect:'none'}}>♠</div>
     </div>
@@ -302,32 +302,22 @@ function CardBack({onClick,topPx,onMouseDown}){
 }
 
 
-function CardFace({card,selected,topPx,onClick,onDbl,isLast,onMouseDown,faded,isRevealing,isSnapping}){
+function CardFace({card,selected,topPx,onClick,onDbl,isLast,onMouseDown,onTouchStart,faded,isRevealing,isSnapping}){
   const color=isRed(card)?T.red:T.black;
   const bg=selected?T.cardSelFace:T.cardFace;
   const bord=selected?`2px solid ${T.cardSelBord}`:`1.5px solid ${T.cardBorder}`;
   const shad=selected?`0 0 0 2.5px ${T.gold},0 4px 16px rgba(0,0,0,.6)`:'0 2px 8px rgba(0,0,0,.5)';
   const faceLabel={J:'J',Q:'Q',K:'K'}[card.value];
-  // Corner label: both value+suit on ONE row so suit stays within F_OFF=22px visible zone
-  // Value uses scaleX to appear wider/fatter without growing taller
   return (
-    <div data-card-id={card.id} onMouseDown={onMouseDown} onClick={onClick} onDoubleClick={onDbl}
+    <div data-card-id={card.id} onMouseDown={onMouseDown} onTouchStart={onTouchStart} onClick={onClick} onDoubleClick={onDbl}
       style={{width:'100%',height:CARD_H,background:bg,border:bord,borderRadius:8,position:'absolute',top:topPx,cursor:'grab',boxShadow:shad,userSelect:'none',opacity:faded?.35:1,transition:'opacity .1s',animation:isRevealing?'flipIn .20s cubic-bezier(.4,0,.2,1)':isSnapping?'snapPlace .20s cubic-bezier(.4,0,.2,1)':undefined}}>
-      {/* Top-left corner: rank left, suit right */}
-      <div style={{position:'absolute',top:2,left:4,right:4,color,display:'flex',alignItems:'flex-start',justifyContent:'space-between'}}>
-        <span style={{fontSize:card.value==='10'?12:14,fontWeight:'900',lineHeight:'16px'}}>{card.value}</span>
-        <span style={{fontSize:16,lineHeight:'16px'}}>{card.suit}</span>
+      {/* Top-left: rank + suit, both flush to top edge, fits in F_OFF=18px strip */}
+      <div style={{position:'absolute',top:1,left:3,color,display:'flex',alignItems:'flex-start',gap:3,lineHeight:1}}>
+        <span style={{fontSize:card.value==='10'?13:16,fontWeight:'900',lineHeight:'16px'}}>{card.value}</span>
+        <span style={{fontSize:18,lineHeight:'16px'}}>{card.suit}</span>
       </div>
-      {/* Center: face label or large suit */}
-      {isLast&&(faceLabel
-        ?<div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:32,fontWeight:'900',color,opacity:.5,letterSpacing:'-1px'}}>{faceLabel}</div>
-        :<div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:28,color}}>{card.suit}</div>
-      )}
-      {/* Bottom-right corner — rotated 180° */}
-      <div style={{position:'absolute',bottom:2,left:4,right:4,color,display:'flex',alignItems:'flex-start',justifyContent:'space-between',transform:'rotate(180deg)'}}>
-        <span style={{fontSize:card.value==='10'?12:14,fontWeight:'900',lineHeight:'16px'}}>{card.value}</span>
-        <span style={{fontSize:16,lineHeight:'16px'}}>{card.suit}</span>
-      </div>
+      {/* Center pip: sit near bottom so it never clashes with top corner */}
+      {isLast&&<div style={{position:'absolute',top:'58%',left:'50%',transform:'translate(-50%,-50%)',fontSize:72,color,lineHeight:1,userSelect:'none'}}>{card.suit}</div>}
     </div>
   );
 }
@@ -359,15 +349,11 @@ function DragLayer({dv}){
         const color=isRed(card)?T.red:T.black;
         return (
           <div key={card.id} style={{position:'absolute',top:i*F_OFF,width:'100%',height:CARD_H,background:T.cardFace,border:`1.5px solid ${T.cardBorder}`,borderRadius:8,boxShadow:'0 12px 32px rgba(0,0,0,.85)',userSelect:'none'}}>
-            <div style={{position:'absolute',top:5,left:7,color,lineHeight:1}}>
-              <div style={{fontSize:17,fontWeight:'bold'}}>{card.value}</div>
-              <div style={{fontSize:13,marginTop:1}}>{card.suit}</div>
+            <div style={{position:'absolute',top:1,left:3,color,display:'flex',alignItems:'flex-start',gap:3,lineHeight:1}}>
+              <span style={{fontSize:card.value==='10'?13:16,fontWeight:'900',lineHeight:'16px'}}>{card.value}</span>
+              <span style={{fontSize:18,lineHeight:'16px'}}>{card.suit}</span>
             </div>
-            {i===cards.length-1&&<div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:32,color}}>{card.suit}</div>}
-            <div style={{position:'absolute',bottom:5,right:7,color,lineHeight:1,transform:'rotate(180deg)'}}>
-              <div style={{fontSize:17,fontWeight:'bold'}}>{card.value}</div>
-              <div style={{fontSize:13,marginTop:1}}>{card.suit}</div>
-            </div>
+            {i===cards.length-1&&<div style={{position:'absolute',top:'58%',left:'50%',transform:'translate(-50%,-50%)',fontSize:72,color,lineHeight:1,userSelect:'none'}}>{card.suit}</div>}
           </div>
         );
       })}
@@ -400,9 +386,9 @@ function SnapLayer({sb}){
         const color=isRed(card)?T.red:T.black;
         return (
           <div key={card.id} style={{position:'absolute',top:i*F_OFF,width:'100%',height:CARD_H,background:T.cardFace,border:`1.5px solid ${T.cardBorder}`,borderRadius:8,boxShadow:'0 8px 24px rgba(0,0,0,.7)',userSelect:'none'}}>
-            <div style={{position:'absolute',top:2,left:5,color,lineHeight:1,display:'flex',alignItems:'center'}}>
-              <span style={{fontSize:18,fontWeight:'900',display:'inline-block',transform:'scaleX(1.18)',transformOrigin:'left center',lineHeight:'18px'}}>{card.value}</span>
-              <span style={{fontSize:18,marginLeft:card.value==='10'?5:3,lineHeight:'18px'}}>{card.suit}</span>
+            <div style={{position:'absolute',top:1,left:3,color,display:'flex',alignItems:'flex-start',gap:3,lineHeight:1}}>
+              <span style={{fontSize:card.value==='10'?13:16,fontWeight:'900',lineHeight:'16px'}}>{card.value}</span>
+              <span style={{fontSize:18,lineHeight:'16px'}}>{card.suit}</span>
             </div>
           </div>
         );
@@ -423,9 +409,9 @@ function FlyingCard({fc}){
     position:'fixed',
     left:phase==='fly'?destRect.left:fromRect.left,
     top:phase==='fly'?destRect.top:fromRect.top,
-    width:fromRect.width,
+    width:phase==='fly'?destRect.width:fromRect.width,
     height:fromRect.height,
-    transition:phase==='fly'?'left .18s cubic-bezier(.4,0,.2,1),top .18s cubic-bezier(.4,0,.2,1)':'none',
+    transition:phase==='fly'?'left .18s cubic-bezier(.4,0,.2,1),top .18s cubic-bezier(.4,0,.2,1),width .12s ease':'none',
     zIndex:9997,
     pointerEvents:'none',
     borderRadius:8,
@@ -436,17 +422,11 @@ function FlyingCard({fc}){
   };
   return ReactDOM.createPortal(
     <div style={style}>
-      <div style={{position:'absolute',top:5,left:7,color,lineHeight:1}}>
-        <div style={{fontSize:17,fontWeight:'bold'}}>{card.value}</div>
-        <div style={{fontSize:13,marginTop:1}}>{card.suit}</div>
+      <div style={{position:'absolute',top:1,left:3,color,display:'flex',alignItems:'flex-start',gap:3,lineHeight:1}}>
+        <span style={{fontSize:card.value==='10'?13:16,fontWeight:'900',lineHeight:'16px'}}>{card.value}</span>
+        <span style={{fontSize:18,lineHeight:'16px'}}>{card.suit}</span>
       </div>
-      {faceLabel
-        ?<div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:36,fontWeight:'bold',color,opacity:.55}}>{faceLabel}</div>
-        :<div style={{position:'absolute',top:'50%',left:'50%',transform:'translate(-50%,-50%)',fontSize:32,color}}>{card.suit}</div>}
-      <div style={{position:'absolute',bottom:5,right:7,color,lineHeight:1,transform:'rotate(180deg)'}}>
-        <div style={{fontSize:17,fontWeight:'bold'}}>{card.value}</div>
-        <div style={{fontSize:13,marginTop:1}}>{card.suit}</div>
-      </div>
+      <div style={{position:'absolute',top:'58%',left:'50%',transform:'translate(-50%,-50%)',fontSize:72,color,lineHeight:1,userSelect:'none'}}>{card.suit}</div>
     </div>,
     document.body
   );
@@ -476,7 +456,7 @@ function TableauColumn({cards,ci,selected,dragState,onCard,onEmpty,onColDrop,rev
         return <CardFace key={card.id} card={card} selected={isSel} topPx={topPx} isLast={isLast} faded={faded}
           isRevealing={revealedCards?.has(card.id)} isSnapping={snappingId===card.id}
           onClick={()=>onCard('tap',ci,i,card)} onDbl={()=>onCard('dbl',ci,i,card)}
-          onMouseDown={e=>onCard('down',ci,i,card,e)}/>;
+          onMouseDown={e=>onCard('down',ci,i,card,e)} onTouchStart={e=>onCard('down',ci,i,card,e)}/>;
       })}
       <div style={{height:colH}}/>
     </div>
@@ -491,7 +471,7 @@ function FoundationPile({cards,hint,fi,onTap,onDrop,selected,onFoundDown}){
       {!top?<EmptySlot label={hint}/>
         :<CardFace card={top} selected={selected} topPx={0} isLast={true}
           onClick={()=>onTap(fi)} onDbl={()=>onTap(fi)}
-          onMouseDown={e=>onFoundDown(e,fi,top)}/>}
+          onMouseDown={e=>onFoundDown(e,fi,top)} onTouchStart={e=>onFoundDown(e,fi,top)}/>}
       {cards.length>0&&<div style={{position:'absolute',bottom:3,right:5,fontSize:9,color:T.muted,zIndex:20}}>{cards.length}</div>}
     </div>
   );
@@ -524,7 +504,7 @@ function StockWaste({stock,waste,onStock,onWaste,wasteSelected,onWasteDown}){
         {top&&(
           <div key={top.id} style={{position:'absolute',top:0,left:FAN*2,right:0,bottom:0,animation:'slideInLeft .22s ease-out'}}>
             <CardFace card={top} selected={wasteSelected} topPx={0} isLast={true}
-              onClick={()=>onWaste(top)} onDbl={()=>onWaste(top,true)} onMouseDown={e=>onWasteDown(e,top)}/>
+              onClick={()=>onWaste(top)} onDbl={()=>onWaste(top,true)} onMouseDown={e=>onWasteDown(e,top)} onTouchStart={e=>onWasteDown(e,top)}/>
           </div>
         )}
       </div>
@@ -1000,6 +980,19 @@ function ZenPuzzle({revealedPieces,paintingUrl}){
 }
 function NatureScene({name,zenPieces,paintingUrl}){
   const id=name.replace(/\s/g,'_');
+  // Always show the ARTIC painting as soon as it loads (Zen Garden keeps its puzzle overlay)
+  if(paintingUrl && name!=='Zen Garden'){
+    return (
+      <div style={{position:'relative',width:'100%',height:'100%',overflow:'hidden',borderRadius:8}}>
+        <img src={paintingUrl} alt="masterpiece"
+          style={{position:'absolute',inset:0,width:'100%',height:'100%',
+                  objectFit:'cover',objectPosition:'center top',display:'block',borderRadius:8}}/>
+        <div style={{position:'absolute',inset:0,
+                     background:'linear-gradient(to top,rgba(0,0,0,.6) 0%,transparent 55%)',
+                     borderRadius:8,pointerEvents:'none'}}/>
+      </div>
+    );
+  }
   if(name==='First Light') return (
     <svg width="100%" height="100%" viewBox="0 0 360 130" preserveAspectRatio="xMidYMid slice">
       <defs>
@@ -1185,7 +1178,12 @@ function RewardCard({gamesWon,zenPieces,paintingUrl,paintingInfo,fillHeight,prem
 // ── SoundEngine: elegant Web Audio sounds ──────────────────────
 const SoundEngine={
   _ctx:null,
-  ctx(){ if(!this._ctx) this._ctx=new(window.AudioContext||window.webkitAudioContext)(); return this._ctx; },
+  ctx(){
+    if(!this._ctx) this._ctx=new(window.AudioContext||window.webkitAudioContext)();
+    // iOS suspends AudioContext until user gesture — resume each time
+    if(this._ctx.state==='suspended') this._ctx.resume();
+    return this._ctx;
+  },
   v(s){ return s===2?1:s===1?0.32:0; },
   flip(s){ const v=this.v(s); if(!v) return; try{
     const c=this.ctx(),t=c.currentTime,o=c.createOscillator(),g=c.createGain();
@@ -1252,6 +1250,23 @@ const SoundEngine={
       g.gain.setValueAtTime(0,t+i*.11);g.gain.linearRampToValueAtTime(.22*v,t+i*.11+.025);
       g.gain.exponentialRampToValueAtTime(.001,t+i*.11+.55);o.start(t+i*.11);o.stop(t+i*.11+.55);});}catch{}},
 };
+
+// ── iOS AudioContext unlock: must resume inside a real user gesture ──
+(function(){
+  function unlockAudio(){
+    if(SoundEngine._ctx && SoundEngine._ctx.state==='suspended'){
+      SoundEngine._ctx.resume();
+    } else if(!SoundEngine._ctx){
+      // Create + immediately suspend/resume to satisfy iOS gesture requirement
+      try{
+        const tmp=new(window.AudioContext||window.webkitAudioContext)();
+        tmp.resume().then(()=>{ SoundEngine._ctx=tmp; });
+      }catch{}
+    }
+  }
+  document.addEventListener('touchstart', unlockAudio, {once:true,passive:true});
+  document.addEventListener('click',      unlockAudio, {once:true,passive:true});
+})();
 
 function SettingsOverlay({playerName,onRename,onClose,sounds,onSounds,drawMode,onDrawMode,assist,onAssist,reduceAnim,onReduceAnim,showTimeMoves,onShowTimeMoves,gamesWon,gamesPlayed,ritual,onRitual,feltTexture,onFeltTexture,onStats}){
   const [name,setName]=useState(playerName);
@@ -2037,6 +2052,13 @@ function Game({playerName,birthYear,onRename}){
       }
       dragRef.current={...dragRef.current,x,y};
       setDragViz(prev=>({...dragRef.current}));
+      // Touch: mouseover never fires on iOS — use elementFromPoint instead
+      if(e.touches){
+        const el=document.elementFromPoint(x,y)?.closest('.dropzone');
+        document.querySelectorAll('.dropzone.over').forEach(z=>z.classList.remove('over'));
+        if(el){el.classList.add('over');dragRef.current={...dragRef.current,overEl:el};}
+        else{dragRef.current={...dragRef.current,overEl:null};}
+      }
       e.preventDefault();
     }
 
@@ -2096,17 +2118,19 @@ function Game({playerName,birthYear,onRename}){
 
   // ── startDrag: called on mousedown of a draggable card ──
   function startDrag(e,src,ci,idx,cards,card){
-    if(e.button!==0) return;
-    e.preventDefault();
+    const isTouch=!!(e.touches||e.changedTouches);
+    if(!isTouch && e.button!==0) return;
+    if(!isTouch) e.preventDefault(); // touch: let onClick/onDoubleClick fire normally
+    const pt=isTouch?(e.touches[0]||e.changedTouches[0]):e;
     const rect=e.currentTarget.getBoundingClientRect();
     dragRef.current={
       src,ci,idx,cards,card,
       cardW:rect.width,
-      offX:e.clientX-rect.left,
-      offY:e.clientY-rect.top,
-      startX:e.clientX, startY:e.clientY,
+      offX:pt.clientX-rect.left,
+      offY:pt.clientY-rect.top,
+      startX:pt.clientX, startY:pt.clientY,
       startLeft:rect.left, startTop:rect.top,
-      x:e.clientX, y:e.clientY,
+      x:pt.clientX, y:pt.clientY,
       isDragging:false,
     };
   }
