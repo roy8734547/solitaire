@@ -1178,15 +1178,19 @@ function fetchARTICPainting(setUrl,setInfo,attempt){
   if(attempt>6) return;
   const pool=isPremiumUnlocked()?ARTIC_PREMIUM:ARTIC_FREE;
   const id=pool[Math.floor(Math.random()*pool.length)];
-  fetch('https://api.artic.edu/api/v1/artworks/'+id+'?fields=image_id,title,artist_title,date_display')
+  fetch('https://api.artic.edu/api/v1/artworks/'+id+'?fields=image_id,title,artist_title,date_display,artwork_type_title')
     .then(r=>r.json())
     .then(d=>{
-      const img=d&&d.data&&d.data.image_id;
-      if(img){
+      const art=d&&d.data;
+      const img=art&&art.image_id;
+      const type=art&&art.artwork_type_title;
+      // Only accept visual fine arts — skip textiles, decorative arts, furniture, etc.
+      const isVisual=!type||/painting|drawing|print|watercolor|photograph|pastel|oil|gouache|tempera/i.test(type);
+      if(img&&isVisual){
         setUrl('https://www.artic.edu/iiif/2/'+img+'/full/843,/0/default.jpg');
-        if(setInfo) setInfo({title:d.data.title||'',artist:d.data.artist_title||'',year:d.data.date_display||'',id});
+        if(setInfo) setInfo({title:art.title||'',artist:art.artist_title||'',year:art.date_display||'',id});
       } else {
-        // ID had no image — retry with different ID
+        // No image or non-visual artwork — retry with different ID
         fetchARTICPainting(setUrl,setInfo,attempt+1);
       }
     })
@@ -2639,14 +2643,15 @@ function Game({playerName,birthYear,onRename}){
     setMeditationToast({baBonus, piece:true});
     setTimeout(()=>setMeditationToast(null),3500);
   }
-  // Zen reveal: log curve so early foundation cards reveal puzzle faster (incentivises play)
-  // Formula: y=log(1+x*(e-1)) maps x∈[0,1]→y∈[0,1] with fast early gain, slow late tail
+  // Zen reveal: log_base(1+B) curve — first card always reveals exactly 1 piece,
+  // then each successive piece requires more cards (true diminishing returns).
+  // Never reveals more than 1 piece per card. All 24 pieces revealed at game end.
   const foundTotal=gs.foundations.reduce((s,f)=>s+f.length,0);
   useEffect(()=>{
     if(won) return;
-    const x=foundTotal/52;
-    const y=Math.log(1+x*(Math.E-1)); // natural log curve, 0→0, 1→1
-    const target=Math.min(ZEN_TOTAL,Math.floor(y*ZEN_TOTAL));
+    const B=0.061; // steepness: higher = more front-loaded
+    const y=foundTotal===0?0:Math.log(1+B*foundTotal)/Math.log(1+B);
+    const target=Math.min(ZEN_TOTAL,Math.floor(y));
     setZenPiecesRef.current(prev=>{
       if(prev.size>=target) return prev;
       const order=zenRevealOrderRef.current;
@@ -2682,7 +2687,7 @@ function Game({playerName,birthYear,onRename}){
       <FlyingCard fc={flyCard}/>
 
       {/* ── LANDSCAPE LEFT PANEL ──────────────────────────────────────── */}
-      <div className="ls-panel" style={{width:210,flexShrink:0,flexDirection:'column',background:'rgba(22,20,14,.97)',borderRight:'1px solid rgba(255,255,255,.09)',overflow:'hidden',paddingBottom:'env(safe-area-inset-bottom)'}}>
+      <div className="ls-panel" style={{flex:'0 0 33%',minWidth:180,flexShrink:0,flexDirection:'column',background:'rgba(22,20,14,.97)',borderRight:'1px solid rgba(255,255,255,.09)',overflow:'hidden',paddingBottom:'env(safe-area-inset-bottom)'}}>
         {/* Painting / Zen Gallery */}
         <div style={{flex:1,minHeight:0,position:'relative'}}>
           <RewardCard gamesWon={gamesWon} zenPieces={zenPieces} paintingUrl={zenPainting} paintingInfo={paintingInfo} fillHeight premium={premium} onPurchase={handlePurchase}/>
@@ -2851,7 +2856,7 @@ function App(){
   }
   function handleRename(name){ try{localStorage.setItem('sol_name',name);}catch{} setPlayerName(name); }
   return (
-    <div style={{display:'flex',flexDirection:'column',minHeight:'100vh'}}>
+    <div style={{display:'flex',flexDirection:'column',minHeight:'100vh',flex:1,width:'100%'}}>
       {playerName?<Game playerName={playerName} birthYear={birthYear} onRename={handleRename}/>:<NameSetup onStart={handleStart}/>}
     </div>
   );
@@ -2860,14 +2865,4 @@ ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 
 <script>
-  // ── Register PWA service worker ──────────────────────────────────────
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('./sw.js')
-        .then(reg => console.log('[SW] registered', reg.scope))
-        .catch(err => console.warn('[SW] registration failed', err));
-    });
-  }
-</script>
-</body>
-</html>
+  // ── Register PWA service worker ─────────────────────�
