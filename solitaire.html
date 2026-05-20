@@ -29,6 +29,16 @@
            padding-right: env(safe-area-inset-right); }
     ::-webkit-scrollbar{width:4px} ::-webkit-scrollbar-track{background:#111009} ::-webkit-scrollbar-thumb{background:#3a3020;border-radius:2px}
     #root { max-width:480px; margin:0 auto; min-height:100dvh; min-height:-webkit-fill-available; background:#1e1c14; display:flex; flex-direction:column; }
+
+    /* ── Landscape phone layout ────────────────────────────── */
+    @media (orientation:landscape) and (max-height:520px){
+      #root { max-width:100vw; width:100%; flex-direction:row; }
+      .lg { display:none !important; }           /* hide portrait-only panels */
+      .ls-panel { display:flex !important; }     /* show landscape panels */
+    }
+    @media (orientation:portrait), (min-height:521px){
+      .ls-panel { display:none !important; }
+    }
     @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
     @keyframes winPop { 0%{transform:scale(.85);opacity:0} 70%{transform:scale(1.04)} 100%{transform:scale(1);opacity:1} }
     .btn:hover{filter:brightness(1.15)} .btn:active{transform:scale(.97)}
@@ -896,30 +906,257 @@ function shuffleArray(arr){const a=[...arr];for(let i=a.length-1;i>0;i--){const 
 // ── Gallery tiers ────────────────────────────────────────────────────────────
 // FREE: 3 iconic masterpieces — teases the feature beautifully
 const ARTIC_FREE=[
-  16568,  // Monet – Water Lilies (1906)          ← the hero image
-  27992,  // Seurat – A Sunday on La Grande Jatte ← iconic landscape
-  111628  // Hopper – Nighthawks                  ← instantly recognisable
+  27992,  // Seurat — A Sunday on La Grande Jatte (THE icon)
+  111628, // Hopper — Nighthawks
+  16568   // Monet — Water Lilies (1906)
 ];
-// PREMIUM: full gallery (50 works across movements and eras)
 const ARTIC_PREMIUM=[
-  // Monet
-  16568,16571,16581,16572,16544,14598,16546,16558,4381,13721,
-  // Renoir · Seurat · Caillebotte · Pissarro · Sisley
-  14655,16169,27992,20684,14572,16814,22736,
-  // Degas · Cassatt · Morisot · Manet · Boudin
-  79307,16171,24645,14586,25698,
-  // Van Gogh · Gauguin
-  80607,40619,20172,
-  // Toulouse-Lautrec · El Greco · Hopper · Wood
-  11434,16327,111628,6565,73216,
-  // Picasso · Matisse · Chagall · Klimt
-  16487,66039,185184,65416,
-  // American: Homer · Sargent · Whistler · O'Keeffe
-  5848,50330,18523,62371,20432,59426,100250,
-  // Rembrandt · Rubens
-  27984,43060,
-  // Modern
-  111400,87479,28067,34286
+  // ── Seurat / Neo-Impressionism ────────────────────────────────────────────
+  27992,  // Seurat — A Sunday on La Grande Jatte (1884-86)
+  20199,  // Seurat — Final Study for Bathers at Asnières
+  61616,  // Seurat — Oil Sketch for La Grande Jatte (1884-85)
+  16491,  // Signac — A Sunday (La Rochelle) (1921)
+
+  // ── Claude Monet ──────────────────────────────────────────────────────────
+  16568,  // Monet — Water Lilies (1906)
+  16571,  // Monet — Arrival of the Normandy Train, Gare Saint-Lazare
+  97933,  // Monet — Water Lily Pond (1900)
+  64818,  // Monet — Stacks of Wheat (End of Summer) (1890-91)
+  14624,  // Monet — Stacks of Wheat (End of Day, Autumn) (1891)
+  81545,  // Monet — Stacks of Wheat (Sunset, Snow Effect) (1891)
+  100191, // Monet — Stack of Wheat (Thaw, Sunset) (1891)
+  111318, // Monet — Stack of Wheat (1891)
+  16560,  // Monet — Stack of Wheat (Snow Effect, Overcast Day) (1891)
+  186316, // Monet — Stacks of Wheat (1890-91)
+  16542,  // Monet — The Customs House at Varengeville (1882)
+  16544,  // Monet — Stacks of Wheat (Snow Effect)
+  16546,  // Monet — Stacks of Wheat (Thaw, Sunset)
+  16558,  // Monet — The Artist's Garden at Vétheuil
+  16572,  // Monet — The Beach at Trouville
+  16581,  // Monet — On the Bank of the Seine, Bennecourt
+  4381,   // Monet — La Grenouillère (1869)
+  13721,  // Monet — Argenteuil (1872)
+  16565,  // Monet — Cliff Walk at Etretat (1882)
+  16550,  // Monet — The Port of Argenteuil (1874)
+  13723,  // Monet — The Pond at Montgeron (1876)
+  17542,  // Monet — Haystacks, Snow Effect (1891)
+  8990,   // Monet — Rough Sea (1900)
+
+  // ── Pierre-Auguste Renoir ─────────────────────────────────────────────────
+  14598,  // Renoir — Two Sisters (On the Terrace) (1881)
+  59944,  // Renoir — The Laundress (1877-79)
+  25832,  // Renoir — Jean Renoir Sewing
+  13104,  // Renoir — Woman at the Piano (1875-76)
+  16169,  // Renoir — Acrobats at the Cirque Fernando (1879)
+  14734,  // Renoir — Two Little Circus Girls (1879)
+  20159,  // Renoir — Landscape near Menton (1883)
+
+  // ── Edgar Degas ───────────────────────────────────────────────────────────
+  81531,  // Degas — On the Stage (1876-77)
+  61603,  // Degas — Ballet at the Paris Opéra (1877)
+  22736,  // Degas — Ballet at the Paris Opéra (pastel)
+  3105,   // Degas — On Stage III (1876-77)
+  45243,  // Degas — Two Dancers (c.1893-98)
+  9148,   // Degas — Ballet Dancers (1874)
+  18951,  // Degas — Yellow Dancers (In the Wings) (1874-76)
+  60656,  // Degas — The Star (Dancer on Stage) (1879-81)
+  16171,  // Degas — The Millinery Shop (1879-86)
+  14574,  // Degas — Henri Degas and His Niece Lucie Degas (1876)
+  19867,  // Degas — The Bath (1885)
+  24637,  // Degas — Dancer with a Fan (1878)
+
+  // ── Édouard Manet ─────────────────────────────────────────────────────────
+  80438,  // Manet — Portrait of Auguste Renoir (1875)
+  14591,  // Manet — Woman Reading (1880-81)
+  14586,  // Manet — The Mocking of Christ (1865)
+  25698,  // Manet — Still Life with Carp
+  19874,  // Manet — The Philosopher (1865-67)
+  18667,  // Manet — Portrait of Berthe Morisot with a Fan (1874)
+
+  // ── Mary Cassatt ─────────────────────────────────────────────────────────
+  14655,  // Cassatt — The Child's Bath (1893)
+  73216,  // Cassatt — Mother and Child
+  22338,  // Cassatt — The Bath / Woman Bathing (1891)
+  82533,  // Cassatt — On a Balcony (1878-79)
+
+  // ── Berthe Morisot ───────────────────────────────────────────────────────
+  11723,  // Morisot — Woman at Her Toilette (c.1875)
+  153798, // Morisot — Woman in a Garden (1882)
+
+  // ── Camille Pissarro ─────────────────────────────────────────────────────
+  87479,  // Pissarro — The Place du Havre, Paris (1893)
+  16814,  // Sisley — Snow at Louveciennes
+  45838,  // Pissarro — Snow at Louveciennes (1872)
+  6005,   // Pissarro — The Banks of the Marne in Winter (1866)
+  110541, // Pissarro — The Crystal Palace (1871)
+  87000,  // Pissarro — Haymaking at Éragny (1892)
+  81548,  // Pissarro — Young Peasant Having Her Coffee (1881)
+
+  // ── Gustave Caillebotte ───────────────────────────────────────────────────
+  20684,  // Caillebotte — Paris Street; Rainy Day (1877)
+  14572,  // Caillebotte — Skiffs (Périssoires) (1877)
+
+  // ── Vincent van Gogh ─────────────────────────────────────────────────────
+  28560,  // Van Gogh — The Bedroom (1889)
+  80607,  // Van Gogh — Self-Portrait (1887)
+  28862,  // Van Gogh — A Peasant Woman Digging (1885)
+  36129,  // Van Gogh — Fishing Boats on the Beach
+  22519,  // Van Gogh — The Arlesienne (Madame Ginoux) (1890)
+  35720,  // Van Gogh — Sunflowers (1888)
+  44228,  // Van Gogh — Starry Night over the Rhône (1888)
+  87327,  // Van Gogh — Cypresses (1889)
+
+  // ── Paul Gauguin ─────────────────────────────────────────────────────────
+  40619,  // Gauguin — Ancestors of Tehamana (1893)
+  60812,  // Gauguin — Merahi metua no Tehamana (1893)
+  20172,  // Gauguin — Why Are You Angry? (1896)
+  16648,  // Gauguin — Woman in Front of a Still Life by Cézanne
+  63234,  // Gauguin — Tahitian Women on the Beach (1891)
+  22634,  // Gauguin — The Burao Tree (1892)
+  8360,   // Gauguin — Te burao (The Hibiscus Tree) (1892)
+  66097,  // Gauguin — Tahitian Girl in Pink Pareu (1891)
+
+  // ── Paul Cézanne ─────────────────────────────────────────────────────────
+  111436, // Cézanne — The Basket of Apples (c.1893)
+  45240,  // Cézanne — The Bathers (1900-06)
+  8986,   // Cézanne — Madame Cézanne in a Yellow Chair (1888-90)
+  61464,  // Cézanne — The Bay from L'Estaque (1886)
+  14561,  // Cézanne — The Vase of Tulips (c.1890)
+  65811,  // Cézanne — The Plate of Apples (c.1876-77)
+
+  // ── Henri de Toulouse-Lautrec ─────────────────────────────────────────────
+  61128,  // Toulouse-Lautrec — At the Moulin Rouge (1892-95)
+  7690,   // Toulouse-Lautrec — The Englishman at the Moulin Rouge
+  109236, // Toulouse-Lautrec — Dance at the Moulin Rouge
+  11434,  // Toulouse-Lautrec — Equestrienne (At the Cirque Fernando) (1888)
+  82287,  // Toulouse-Lautrec — Moulin Rouge, La Goulue (poster)
+
+  // ── Henri Matisse ─────────────────────────────────────────────────────────
+  79307,  // Matisse — Bathers by a River (1909-17)
+  66039,  // Matisse — Woman before an Aquarium
+  16487,  // Matisse — Interior at Nice
+  24306,  // Matisse — The Pink Marble Table (1917)
+  34781,  // Matisse — Red Interior with Blue Table
+  87045,  // Matisse — Still Life with Geranium (1906)
+
+  // ── Pablo Picasso ────────────────────────────────────────────────────────
+  28067,  // Picasso — The Old Guitarist (1903-04)
+  111400, // Picasso — Harlequin with Violin
+  100250, // Picasso — Daniel-Henry Kahnweiler
+  65916,  // Picasso — Nude under a Pine Tree (1959)
+  55048,  // Picasso — Figure (1908)
+
+  // ── Marc Chagall ─────────────────────────────────────────────────────────
+  59426,  // Chagall — White Crucifixion (1938)
+  185184, // Chagall — The Praying Jew
+  59828,  // Chagall — The Praying Jew / Rabbi of Vitebsk (1914)
+  76258,  // Chagall — Birth (1910)
+
+  // ── Wassily Kandinsky / Expressionism ────────────────────────────────────
+  49080,  // Kandinsky — Composition VIII (1923)
+  8991,   // Kandinsky — Improvisation No. 30 (Cannons) (1913)
+  55369,  // Klee — Conqueror (1930)
+  89856,  // Beckmann — Self-Portrait (1932)
+  84241,  // Beckmann — Self-Portrait (1937)
+  29424,  // Schiele — The Artist's Mother (1907)
+
+  // ── Old Masters ──────────────────────────────────────────────────────────
+  16327,  // El Greco — The Assumption of the Virgin (1577-79)
+  20508,  // El Greco — St. Martin and the Beggar
+  21023,  // Goya — El Maragato Threatens Friar Pedro (1806)
+  95998,  // Rembrandt — Old Man with a Gold Chain (c.1631)
+  27984,  // Rembrandt — Young Woman at an Open Half-Door (1645)
+  7124,   // Rembrandt — Portrait of a Young Man
+  43060,  // Rubens — The Wedding Feast of Peleus and Thetis
+  8953,   // Rubens — The Capture of Samson
+  17711,  // Rubens — Judith Slaying Holofernes (sketch)
+  26220,  // Van Dyck — The Visitation (1629)
+  32772,  // Bellini — Virgin and Child with Saints
+  41038,  // Velázquez — Portrait of a Man (follower)
+  79600,  // Fragonard — Portrait of a Young Artist (1769)
+  20470,  // David — Madame de Pastoret (1791-92)
+  4219,   // Daumier — Laundress on the Quai d'Anjou (c.1860)
+  4731,   // Turner — Snowstorm: Steamboat off a Harbour's Mouth
+
+  // ── Symbolism / Fin de Siècle ─────────────────────────────────────────────
+  65416,  // Klimt — Portrait of Ria Munk III
+  20579,  // Moreau — Hercules and the Lernaean Hydra (1876)
+  89157,  // Moreau — La Peri (Mythological Subject) (1865)
+  64724,  // Inness — The Home of the Heron (1893)
+
+  // ── Gustave Courbet / Jean-François Millet / Barbizon ─────────────────────
+  6002,   // Courbet — The Print Collector (1853)
+  14656,  // Courbet — The Meeting study
+  16490,  // Courbet — The Brook of Les Puits-Noir (c.1855)
+  3546,   // Courbet — The Valley of Les Puits-Noir (1868)
+  111648, // Millet — Peasants Bringing Home a Calf (1864)
+  49741,  // Millet — Peasant Resting (c.1855)
+  7733,   // Millet — Peasants Going to Work (1863)
+  81510,  // Corot — Souvenir of Italy
+  20432,  // Corot — The Old Savoyard
+  20381,  // Corot — Forest of Fontainebleau
+
+  // ── Nabis / Post-Impressionist ───────────────────────────────────────────
+  44852,  // Vuillard — Room at the Château des Clayes
+  72185,  // Vuillard — Madame Vuillard in Profile
+  49536,  // Vuillard — The Flowered Dress
+  154863, // Bonnard — Woman in a Garden
+  94241,  // Vallotton — The Red Room, Etretat (1899)
+  60694,  // Vallotton — Laziness (1896)
+  27281,  // Modigliani — Jacques and Berthe Lipchitz
+  17190,  // Modigliani — Madame Pompadour (1915)
+  28096,  // Rousseau (Henri) — The Waterfall (1910)
+  109330, // Braque — Little Harbor in Normandy (1909)
+  110966, // Braque — Still Life with Fruits and Stringed Instrument (1936-38)
+
+  // ── American Masters ─────────────────────────────────────────────────────
+  6565,   // Wood — American Gothic (1930)
+  111628, // Hopper — Nighthawks (1942)
+  117266, // Motley — Nightlife (1943)
+  140644, // Motley — Self-Portrait (c.1920)
+  93811,  // Albright — Into the World There Came a Soul Called Ida (1929-30)
+  62273,  // Albright — Self-Portrait (1935)
+  5848,   // Homer — Croquet Scene (1866)
+  25865,  // Homer — The Herring Net (1885)
+  16782,  // Homer — Campfire, Adirondacks (1892)
+  16794,  // Homer — The Gulf Stream
+  16831,  // Homer — Stowing Sail (1903)
+  13693,  // Homer — The Blue Boat (1892)
+  13689,  // Homer — Tornado (1890)
+  8971,   // Homer — Coast of Maine (c.1893)
+  16776,  // Homer — After the Hurricane, Bahamas (1899)
+  16779,  // Homer — Breaking Storm, Coast of Maine (1894)
+  16823,  // Homer — The Rapids, Hudson River, Adirondacks (1894)
+  14837,  // Homer — Netting the Fish (1897)
+  4749,   // Sargent — Mrs. George Swinton (1896-97)
+  50330,  // Sargent — Venetian Glass Workers
+  87597,  // Sargent — Repose (1911)
+  84709,  // Sargent — Muddy Alligators (1917)
+  4750,   // Sargent — Breakfast in the Loggia (1910)
+  18523,  // Whistler — Nocturne: Blue and Gold
+  65709,  // Whistler — The Artist in His Studio (1865-66)
+  62371,  // O'Keeffe — Radiator Building, Night, New York
+  66669,  // Chase — A Friendly Call (1895)
+  26776,  // Eakins — Mary Adeline Williams (1899)
+  71819,  // Church — Cotopaxi (1862) study
+  3020,   // Heade — Magnolias on Light Blue Velvet Cloth
+  62031,  // Johnson — The Brown Family (1869)
+  30701,  // Inness — The Old Mill (1849)
+  64729,  // Inness — Early Morning, Tarpon Springs (c.1892)
+  64754,  // Inness — Moonrise (c.1887)
+  65353,  // Inness — The Storm (1885-1890)
+  34286,  // American — mixed modern
+
+  // ── Spanish / International ───────────────────────────────────────────────
+  109819, // Sorolla — Afternoon Sun (1903)
+  90903,  // Sorolla — Two Sisters, Valencia (1909)
+  61564,  // Boudin — Peasant Women of Brittany (1867)
+  39628,  // Boudin — Beach at Trouville
+
+  // ── Tissot ───────────────────────────────────────────────────────────────
+  28662,  // Tissot — Without a Dowry (1883-85)
+  49966,  // Tissot — Mavourneen (1876)
+  48132,  // Tissot — The Hammock (1880)
 ];
 // ── Premium unlock state ──────────────────────────────────────────────────────
 // In production: replaced by StoreKit receipt validation via native bridge.
@@ -1767,7 +2004,22 @@ function PerformanceModal({type,moveTimes,moveAccuracy,birthYear,onClose,brainAg
   );
 }
 
+
+function useLandscape(){
+  const [ls,setLs]=React.useState(()=>
+    typeof window!=='undefined'&&window.innerWidth>window.innerHeight&&window.innerHeight<521
+  );
+  React.useEffect(()=>{
+    const mq=window.matchMedia('(orientation:landscape) and (max-height:520px)');
+    const h=e=>setLs(e.matches);
+    mq.addEventListener('change',h);
+    return ()=>mq.removeEventListener('change',h);
+  },[]);
+  return ls;
+}
+
 function Game({playerName,birthYear,onRename}){
+  const isLS=useLandscape();
   const [gs,setGs]=useState(()=>dealWinnableGame());
   const [history,setHistory]=useState([]);
   const [sel,setSel]=useState(null);
@@ -2424,15 +2676,62 @@ function Game({playerName,birthYear,onRename}){
   const assistLabels=['Manual','Auto Aces','Auto All'];
 
   return (
-    <div style={{flex:1,display:'flex',flexDirection:'column',background:T.bg}}>
+    <div style={{flex:1,display:'flex',flexDirection:isLS?'row':'column',background:T.bg,width:'100%'}}>
       <DragLayer dv={dragViz}/>
       {snapBack&&<SnapLayer sb={snapBack}/>}
       <FlyingCard fc={flyCard}/>
 
-      {/* HEADER */}
-      <div style={{background:T.bgDark,padding:'13px 16px 11px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:`1px solid rgba(255,255,255,.05)`,flexShrink:0}}>
-        <div style={{fontSize:16,color:T.text}}>{greeting}</div>
-        <div style={{display:'flex',alignItems:'center',gap:5,fontSize:13,color:T.gold}}>
+      {/* ── LANDSCAPE LEFT PANEL ──────────────────────────────────────── */}
+      <div className="ls-panel" style={{width:210,flexShrink:0,flexDirection:'column',background:'rgba(22,20,14,.97)',borderRight:'1px solid rgba(255,255,255,.09)',overflow:'hidden',paddingBottom:'env(safe-area-inset-bottom)'}}>
+        {/* Painting / Zen Gallery */}
+        <div style={{flex:1,minHeight:0,position:'relative'}}>
+          <RewardCard gamesWon={gamesWon} zenPieces={zenPieces} paintingUrl={zenPainting} paintingInfo={paintingInfo} fillHeight premium={premium} onPurchase={handlePurchase}/>
+        </div>
+        {/* Stats row */}
+        <div style={{flexShrink:0,padding:'4px 7px 3px',borderTop:'1px solid rgba(255,255,255,.07)',background:'rgba(18,16,10,.8)'}}>
+          <div style={{display:'flex',gap:6,marginBottom:3}}>
+            <div onClick={()=>setPerfModal('speed')} className="lg-btn" style={{flex:1,cursor:'pointer',borderRadius:5,padding:'2px 3px'}}>
+              <div style={{fontSize:9,color:'rgba(230,205,150,.85)',letterSpacing:.6,textTransform:'uppercase',fontWeight:'700'}}>Speed <span style={{fontSize:7,opacity:.4}}>▸</span></div>
+              <SpeedChart times={moveTimes}/>
+            </div>
+            <div onClick={()=>setPerfModal('accuracy')} className="lg-btn" style={{flex:1,cursor:'pointer',borderRadius:5,padding:'2px 3px'}}>
+              <div style={{fontSize:9,color:'rgba(230,205,150,.85)',letterSpacing:.6,textTransform:'uppercase',fontWeight:'700'}}>Accuracy <span style={{fontSize:7,opacity:.4}}>▸</span></div>
+              <AccuracyChart scores={moveAccuracy}/>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:6,alignItems:'center'}}>
+            <div onClick={()=>setBrainAgeModal(true)} className="lg-btn" style={{flex:1,cursor:'pointer',borderRadius:5,padding:'2px 3px'}}>
+              <div style={{fontSize:9,color:'rgba(230,205,150,.85)',letterSpacing:.6,textTransform:'uppercase',fontWeight:'700'}}>Brain Age <span style={{fontSize:7,opacity:.4}}>▸</span></div>
+              <BrainAgeChart moveTimes={moveTimes} moveAccuracy={moveAccuracy} meditationSessions={meditationSessions}/>
+            </div>
+            <div style={{textAlign:'right',borderLeft:'1px solid rgba(255,255,255,.06)',paddingLeft:6,flexShrink:0}}>
+              <div style={{fontSize:9,color:'rgba(230,205,150,.85)',letterSpacing:.6,textTransform:'uppercase',fontWeight:'700'}}>Score</div>
+              <div style={{fontSize:18,color:'#c8a030',lineHeight:1,fontWeight:'bold'}}>{score}</div>
+            </div>
+          </div>
+        </div>
+        {/* Action buttons — 2 rows */}
+        <div style={{flexShrink:0,padding:'5px 7px 6px',borderTop:'1px solid rgba(255,255,255,.09)',background:'rgba(14,12,8,.85)'}}>
+          <div style={{display:'flex',gap:4,marginBottom:4}}>
+            <button onClick={handleNewGameBtn} disabled={dealing} className="btn" style={{flex:1,padding:'8px 3px',background:T.btn,border:`1px solid ${T.btnBord}`,borderRadius:7,color:dealing?T.muted:T.text,fontSize:13,fontFamily:'Georgia,serif',cursor:dealing?'default':'pointer',fontWeight:'600'}}>{dealing?'…':'New Game'}</button>
+            <button onClick={handleUndo} disabled={!history.length} className="btn" style={{flex:1,padding:'8px 3px',background:T.btn,border:`1px solid ${T.btnBord}`,borderRadius:7,color:history.length?T.text:T.muted,fontSize:13,fontFamily:'Georgia,serif',cursor:history.length?'pointer':'default',fontWeight:'600'}}>Undo</button>
+          </div>
+          <div style={{display:'flex',gap:4}}>
+            <button onClick={handleHint} className="btn" style={{flex:1,padding:'7px 3px',background:'rgba(30,50,80,.95)',border:'1px solid rgba(100,150,210,.3)',borderRadius:7,color:'#a0c4e8',fontSize:13,fontFamily:'Georgia,serif',cursor:'pointer',fontWeight:'600'}}>Hint</button>
+            <button onClick={()=>setBreath(true)} className="btn" style={{flex:1,padding:'5px 3px',background:T.green,border:`1px solid rgba(58,122,82,.35)`,borderRadius:7,color:'#a8d8b8',fontSize:11,fontFamily:'Georgia,serif',cursor:'pointer',lineHeight:1.3,fontWeight:'600'}}>🌿<br/>Meditate</button>
+            <button onClick={()=>setShowSettings(true)} className="btn" style={{padding:'7px 8px',background:T.btn,border:`1px solid ${T.btnBord}`,borderRadius:7,color:T.muted,fontSize:13,cursor:'pointer'}}>⚙️</button>
+          </div>
+        </div>
+      </div>
+      {/* ── END LANDSCAPE LEFT PANEL ──────────────────────────────────── */}
+
+      {/* RIGHT COLUMN (header + game + portrait bars) */}
+      <div style={{flex:1,display:'flex',flexDirection:'column',minWidth:0,overflow:'hidden'}}>
+      {/* HEADER — hidden in landscape (info moves to left panel) */}
+      <div style={{background:T.bgDark,padding:isLS?'7px 12px 6px':'13px 16px 11px',display:'flex',justifyContent:'space-between',alignItems:'center',borderBottom:`1px solid rgba(255,255,255,.05)`,flexShrink:0}}>
+        {!isLS&&<div style={{fontSize:16,color:T.text}}>{greeting}</div>}
+        {isLS&&<div style={{fontSize:13,color:T.text,opacity:.7}}>{greeting}</div>}
+        <div style={{display:'flex',alignItems:'center',gap:5,fontSize:isLS?11:13,color:T.gold}}>
           <span>🔥</span><span>Streak: {streak} {streak===1?'Day':'Days'}</span>
         </div>
       </div>
@@ -2441,7 +2740,7 @@ function Game({playerName,birthYear,onRename}){
       <div style={{display:'flex',flex:1,overflow:'hidden'}}>
 
         {/* GAME BOARD */}
-        <div style={{flex:1,minWidth:0,padding:'10px 7px 8px',overflowY:'auto',minHeight:388}}>
+        <div style={{flex:1,minWidth:0,padding:isLS?'8px 6px 6px':'10px 7px 8px',overflowY:'auto',minHeight:isLS?0:388}}>
           <div style={{display:'flex',gap:5,marginBottom:10,alignItems:'flex-start'}}>
             {gs.foundations.map((f,fi)=>(
               <FoundationPile key={fi} cards={f} hint={FOUND_HINTS[fi]} fi={fi}
@@ -2504,6 +2803,8 @@ function Game({playerName,birthYear,onRename}){
         <button onClick={()=>setBreath(true)} className="btn" style={{flex:1,padding:'7px 3px',background:T.green,border:`1px solid rgba(58,122,82,.35)`,borderRadius:8,color:'#a8d8b8',fontSize:12,fontFamily:'Georgia,serif',cursor:'pointer',lineHeight:1.4,fontWeight:'600'}}>🌿<br/>Meditate</button>
         <button onClick={()=>setShowSettings(true)} className="btn" style={{padding:'9px 9px',background:T.btn,border:`1px solid ${T.btnBord}`,borderRadius:8,color:T.muted,fontSize:14,cursor:'pointer'}}>⚙️</button>
       </div>
+
+      </div>{/* END RIGHT COLUMN */}
 
       {dealing&&<div style={{position:'fixed',inset:0,background:'rgba(5,8,5,.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:150}}><div style={{color:T.gold,fontSize:16,fontFamily:'Georgia,serif'}}>Finding a winnable deal…</div></div>}
       {/* Score floaters */}
